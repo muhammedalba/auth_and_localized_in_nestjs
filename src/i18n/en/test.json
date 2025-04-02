@@ -1,0 +1,6 @@
+{
+    "HELLO": "Hello  {email}",
+    "PRODUCT": {
+      "NEW": "New Product: {name}"
+    }
+}
