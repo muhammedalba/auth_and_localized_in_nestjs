@@ -50,6 +50,13 @@ export class User {
   })
   @Exclude()
   role?: string;
+  @Exclude()
+  @Prop({
+    required: false,
+    type: 'string',
+    default: undefined,
+  })
+  verificationCode?: string;
   @Prop({
     required: false,
     type: 'string',

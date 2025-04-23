@@ -7,12 +7,15 @@ import { User } from 'src/users/schemas/user.schema';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
 import slugify from 'slugify';
 import * as bcrypt from 'bcrypt';
-import { loginUserDto } from 'src/auth/Dto/login.dto';
+
 import { JwtService } from '@nestjs/jwt';
-import { RefreshToken } from './schema/refresh-token.schema';
+import { RefreshToken } from './shared/schema/refresh-token.schema';
 import { v4 as uuidv4 } from 'uuid';
-import { RefreshTokenDto } from './Dto/refresh-Token.Dto';
+import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
+import { EmailService } from 'src/email/email.service';
+import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
+import { LoginUserDto } from './shared/Dto/login.dto';
 interface DecodedToken {
   user_id: string;
   email: string;
@@ -25,6 +28,7 @@ interface DecodedToken {
 export class AuthService {
   constructor(
     private readonly i18n: CustomI18nService,
+    private readonly emailService: EmailService,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
@@ -76,12 +80,12 @@ export class AuthService {
     const userWithTokens = { ...newUser.toObject(), Tokens, status: 'success' };
     return userWithTokens;
   }
-  async login(loginUserDto: loginUserDto) {
+  async login(loginUserDto: LoginUserDto) {
     const { email, password } = loginUserDto;
     // 1) check email in database
     const user = await this.userModel
       .findOne({ email })
-      .select('password email role');
+      .select('password email role avatar');
     if (!user) {
       throw new BadRequestException(
         this.i18n.translate('test.HELLO', { args: { email } }),
@@ -99,10 +103,12 @@ export class AuthService {
       role: user.role || 'user',
       email: user.email,
     };
-
     const Tokens = await this.generate_Tokens(userId, '1h');
 
-    return Tokens;
+    //5) update avatar url
+    user.avatar = `${process.env.BASE_URL}${user.avatar}`;
+    const userWithTokens = { ...user.toObject(), Tokens, status: 'success' };
+    return userWithTokens;
   }
 
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
@@ -146,8 +152,40 @@ export class AuthService {
       throw new BadRequestException('Error occurred while logging out');
     }
   }
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    // 1 ) check email if is in use
+    const user = await this.userModel
+      .findOne({
+        email: forgotPasswordDto.email,
+      })
+      .select('email name');
+    if (!user) {
+      throw new BadRequestException('Email not found');
+    }
+    // 2 ) generate random 6  number
+    const code = Math.floor(100000 + Math.random() * 900000);
+    console.log(code, 'code');
 
-  // generate tokens and delete old refresh token //
+    // 3 ) send email with code
+    await this.emailService.sendRandomCode(
+      user.email,
+      user.name,
+      code.toString(),
+    );
+    // 4 ) save code in database
+    await this.userModel.findOneAndUpdate(
+      { email: forgotPasswordDto.email },
+      { verificationCode: code },
+    );
+    return {
+      status: 'success',
+      message: this.i18n.translate('test.HELLO', {
+        args: { email: forgotPasswordDto.email },
+      }),
+    };
+  }
+
+  // --- generate tokens and delete old refresh token --- //
   async generate_Tokens(userData: DecodedToken, expiresIn: string) {
     // 1) generate new access token
     const access_token = await this.jwtService.signAsync(userData, {
@@ -160,6 +198,7 @@ export class AuthService {
 
     return { access_token, refresh_Token };
   }
+
   // delete old refresh token and save new refresh token in date base
   async store_Refresh_Token(userId: string, refresh_Token: string) {
     //1) delete old refresh token from database

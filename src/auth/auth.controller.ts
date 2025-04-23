@@ -12,9 +12,10 @@ import { AuthService } from './auth.service';
 import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
-import { loginUserDto } from 'src/auth/Dto/login.dto';
-import { RefreshTokenDto } from './Dto/refresh-Token.Dto';
-import { AuthGuard } from './guards/auth.guard';
+import { LoginUserDto } from 'src/auth/shared/Dto/login.dto';
+import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
+import { AuthGuard } from './shared/guards/auth.guard';
+import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 
 @Controller('auth')
 export class AuthController {
@@ -24,7 +25,7 @@ export class AuthController {
    * method: POST
    */
   @Post('login')
-  login(@Body() loginUserDto: loginUserDto) {
+  login(@Body() loginUserDto: LoginUserDto) {
     return this.authService.login(loginUserDto);
   }
   /*
@@ -60,8 +61,8 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  async forgotPassword() {
-    // Implement forgotPassword logic
+  async forgotPassword(@Body() forgotPassword: ForgotPasswordDto) {
+    await this.authService.forgotPassword(forgotPassword);
   }
   @Post('reset-password')
   async resetPassword() {

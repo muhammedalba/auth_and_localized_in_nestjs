@@ -17,10 +17,10 @@ import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
 import { CreateUserDto } from './dto/create-user.dto';
 import { IdParamDto } from './dto/id-param.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AuthGuard } from 'src/auth/guards/auth.guard';
-import { Roles } from 'src/auth/decorators/rolesdecorator';
-import { roles } from 'src/auth/enums/role.enum';
-import { RoleGuard } from 'src/auth/guards/role.guard';
+import { AuthGuard } from 'src/auth/shared/guards/auth.guard';
+import { roles } from 'src/auth/shared/enums/role.enum';
+import { RoleGuard } from 'src/auth/shared/guards/role.guard';
+import { Roles } from 'src/auth/shared/decorators/rolesdecorator';
 
 //  * rote: http://localhost:4000/api/v1/users
 //  * privet

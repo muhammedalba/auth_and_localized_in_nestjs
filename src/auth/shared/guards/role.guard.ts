@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
-import { Roles_key } from 'src/auth/decorators/rolesdecorator';
-import { roles } from 'src/auth/enums/role.enum';
+import { roles } from 'src/auth/shared/enums/role.enum';
+import { Roles_key } from '../decorators/rolesdecorator';
 
 // add this to your request object in middleware or guards
 interface CustomRequest extends Request {
@@ -34,7 +34,7 @@ export class RoleGuard implements CanActivate {
     ]);
     // check if user has required role  or admin role  (for example)
     const hasRequiredRole: boolean = requiredRoles.some(
-      (role) => user?.role === role.toString(),
+      (role) => user?.role.toString() === role.toString(),
     );
     if (!hasRequiredRole) {
       throw new UnauthorizedException('you do not have required role');
