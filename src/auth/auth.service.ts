@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 
 import { Model } from 'mongoose';
@@ -167,11 +171,16 @@ export class AuthService {
     console.log(code, 'code');
 
     // 3 ) send email with code
-    await this.emailService.sendRandomCode(
-      user.email,
-      user.name,
-      code.toString(),
-    );
+    try {
+      await this.emailService.sendRandomCode(
+        user.email,
+        user.name,
+        code.toString(),
+      );
+    } catch {
+      throw new BadGatewayException('Error occurred while sending email');
+    }
+
     // 4 ) save code in database
     await this.userModel.findOneAndUpdate(
       { email: forgotPasswordDto.email },

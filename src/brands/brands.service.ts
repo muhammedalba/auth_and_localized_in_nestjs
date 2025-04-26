@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateBrandDto } from './dto/create-brand.dto';
-import { UpdateBrandDto } from './dto/update-brand.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
 import { Brand } from './schemas/brand.schema';
 import { Model } from 'mongoose';
 import { I18nContext } from 'nestjs-i18n';
+
+type file = Express.Multer.File;
 
 @Injectable()
 export class BrandsService {
@@ -13,27 +14,56 @@ export class BrandsService {
     @InjectModel(Brand.name) private brandModel: Model<Brand>,
     private readonly fileUploadService: FileUploadService,
   ) {}
-  async create(createBrandDto: CreateBrandDto) {
-    const brand = await this.brandModel.create(createBrandDto);
-    return brand;
+  // get current language
+  private getCurrentLang(): string {
+    const lang =
+      I18nContext.current()?.lang ?? process.env.DEFAULT_LANGUAGE ?? 'ar';
+    return lang;
+  }
+  async create(createBrandDto: CreateBrandDto, file: file): Promise<Brand> {
+    // const brand = await this.brandModel.create(createBrandDto);
+    //2) file upload service (save image in disk storage)
+    let filePath = `/${process.env.UPLOADS_FOLDER}/brands/image.png`;
+    if (file) {
+      try {
+        filePath = await this.fileUploadService.saveFileToDisk(
+          file,
+          `./${process.env.UPLOADS_FOLDER}/brands`,
+        );
+      } catch (error) {
+        console.error('File upload failed:', error);
+      }
+    }
+
+    //3) save user to db with avatar path
+    createBrandDto.image = filePath;
+    const new_brand = await this.brandModel.create(createBrandDto);
+    //4) update avatar url
+    new_brand.image = `${process.env.BASE_URL}${filePath}`;
+
+    return new_brand;
   }
 
   async findAll(): Promise<Brand[]> {
     const brands = await this.brandModel.find();
-    const localize_brands =
-      this.brandModel.schema.methods.toJSONLocalizedOnly(
-        brands,
-        I18nContext.current()?.lang,
-      );
-    return localize_brands;
+    if (!brands) {
+      throw new BadRequestException('Brands not found');
+    }
+    const toJSONLocalizedOnly = this.brandModel.schema.methods
+      .toJSONLocalizedOnly as (brands: Brand[], lang: string) => Brand[];
+    const localize_brand = toJSONLocalizedOnly(brands, this.getCurrentLang());
+    return localize_brand;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} brand`;
-  }
-
-  update(id: number, updateBrandDto: UpdateBrandDto) {
-    return `This action updates a #${id} brand`;
+  async findOne(id: string) {
+    const brand = await this.brandModel.findById(id);
+    if (!brand) {
+      throw new BadRequestException('Brand not found');
+    }
+    const toJSONLocalizedOnly = this.brandModel.schema.methods
+      .toJSONLocalizedOnly as (brand: Brand, lang: string) => Brand[];
+    const localize_brand = toJSONLocalizedOnly(brand, this.getCurrentLang());
+    return localize_brand;
   }
 
   remove(id: number) {

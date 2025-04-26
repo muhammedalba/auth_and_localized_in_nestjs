@@ -6,18 +6,27 @@ import {
   Patch,
   Param,
   Delete,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { BrandsService } from './brands.service';
 import { CreateBrandDto } from './dto/create-brand.dto';
 import { UpdateBrandDto } from './dto/update-brand.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
 
 @Controller('brands')
 export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Post()
-  create(@Body() createBrandDto: CreateBrandDto) {
-    return this.brandsService.create(createBrandDto);
+  @UseInterceptors(FileInterceptor('avatar'))
+  create(
+    @Body() createBrandDto: CreateBrandDto,
+    @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))
+    file: Express.Multer.File,
+  ) {
+    return this.brandsService.create(createBrandDto, file);
   }
 
   @Get()
@@ -27,12 +36,12 @@ export class BrandsController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.brandsService.findOne(+id);
+    return this.brandsService.findOne(id);
   }
 
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBrandDto: UpdateBrandDto) {
-    return this.brandsService.update(+id, updateBrandDto);
+    return `this.brandsService.update(+${id}, {updateBrandDto});`;
   }
 
   @Delete(':id')
