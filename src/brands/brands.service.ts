@@ -41,7 +41,13 @@ export class BrandsService {
     //4) update avatar url
     new_brand.image = `${process.env.BASE_URL}${filePath}`;
 
-    return new_brand;
+    const toJSONLocalizedOnly = this.brandModel.schema.methods
+      .toJSONLocalizedOnly as (new_brand: Brand, lang: string) => Brand;
+    const localize_brand = toJSONLocalizedOnly(
+      new_brand,
+      this.getCurrentLang(),
+    );
+    return localize_brand;
   }
 
   async findAll(): Promise<Brand[]> {

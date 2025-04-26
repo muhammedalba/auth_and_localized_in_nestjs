@@ -36,6 +36,9 @@ export class RoleGuard implements CanActivate {
     const hasRequiredRole: boolean = requiredRoles.some(
       (role) => user?.role.toString() === role.toString(),
     );
+    // console.log(requiredRoles);
+    // console.log(user.role);
+    // console.log(hasRequiredRole);
     if (!hasRequiredRole) {
       throw new UnauthorizedException('you do not have required role');
     }

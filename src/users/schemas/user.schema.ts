@@ -45,7 +45,7 @@ export class User {
     required: false,
     lowercase: true,
     type: 'string',
-    enum: ['user', 'admin, manager'],
+    enum: ['user', 'admin', 'manager'],
     default: 'user',
   })
   @Exclude()
@@ -53,10 +53,22 @@ export class User {
   @Exclude()
   @Prop({
     required: false,
+    type: Boolean,
+    default: undefined,
+  })
+  verificationCode?: boolean;
+  @Prop({
+    required: false,
+    type: Number,
+    default: undefined,
+  })
+  passwordResetExpires?: number;
+  @Prop({
+    required: false,
     type: 'string',
     default: undefined,
   })
-  verificationCode?: string;
+  passwordResetCode?: string;
   @Prop({
     required: false,
     type: 'string',

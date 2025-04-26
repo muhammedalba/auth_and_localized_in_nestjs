@@ -20,7 +20,7 @@ export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
   @Post()
-  @UseInterceptors(FileInterceptor('avatar'))
+  @UseInterceptors(FileInterceptor('image'))
   create(
     @Body() createBrandDto: CreateBrandDto,
     @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))

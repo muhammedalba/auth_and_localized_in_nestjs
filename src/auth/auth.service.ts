@@ -11,6 +11,7 @@ import { User } from 'src/users/schemas/user.schema';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
 import slugify from 'slugify';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 import { JwtService } from '@nestjs/jwt';
 import { RefreshToken } from './shared/schema/refresh-token.schema';
@@ -20,6 +21,7 @@ import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 import { EmailService } from 'src/email/email.service';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { LoginUserDto } from './shared/Dto/login.dto';
+import { resetCodeDto } from './shared/Dto/resetCode.dto';
 interface DecodedToken {
   user_id: string;
   email: string;
@@ -71,7 +73,7 @@ export class AuthService {
     //3) save user to db with avatar path
     createUserDto.avatar = filePath;
     const newUser = await this.userModel.create(createUserDto);
-    //4) generate refresh token and access token and save the refresh token in database and delet old refresh token
+    //4) generate refresh token and access token and save the refresh token in database and delete old refresh token
     const userId = {
       user_id: newUser._id.toString(),
       role: 'user',
@@ -101,7 +103,7 @@ export class AuthService {
     if (!isMatch) {
       throw new BadRequestException('Invalid credentials');
     }
-    // 3) generate RefreshToken and access token and save the refresh token in database and delet old refresh token
+    // 3) generate RefreshToken and access token and save the refresh token in database and delete old refresh token
     const userId = {
       user_id: user._id.toString(),
       role: user.role || 'user',
@@ -139,7 +141,7 @@ export class AuthService {
       role: decoded_hToken.role || 'user',
       email: decoded_hToken.email,
     };
-    // generate new access and refresh token and delet old refresh token
+    // generate new access and refresh token and delete old refresh token
     const new_access_Tokens = await this.generate_Tokens(userData, '1h');
     return new_access_Tokens;
   }
@@ -157,35 +159,48 @@ export class AuthService {
     }
   }
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    // 1 ) check email if is in use
+    // 1 ) get user by email
     const user = await this.userModel
       .findOne({
         email: forgotPasswordDto.email,
       })
-      .select('email name');
+      .select(
+        'email name passwordResetCode passwordResetExpires verificationCode',
+      );
     if (!user) {
       throw new BadRequestException('Email not found');
     }
-    // 2 ) generate random 6  number
-    const code = Math.floor(100000 + Math.random() * 900000);
-    console.log(code, 'code');
+    // 2) generate hash reset rendom 6 digits and save it in db
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedResetCode = crypto
+      .createHash('sha256')
+      .update(resetCode)
+      .digest('hex');
+    // save hashed password reset code into db
+    user.passwordResetCode = hashedResetCode;
+    // add expiration time for password reset code (10 min)
+    user.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+    user.verificationCode = false;
+    await user.save();
 
     // 3 ) send email with code
     try {
       await this.emailService.sendRandomCode(
         user.email,
         user.name,
-        code.toString(),
+        resetCode.toString(),
       );
     } catch {
+      user.passwordResetCode = undefined;
+      user.passwordResetExpires = undefined;
+      user.verificationCode = undefined;
+      await user.save();
       throw new BadGatewayException('Error occurred while sending email');
     }
 
     // 4 ) save code in database
-    await this.userModel.findOneAndUpdate(
-      { email: forgotPasswordDto.email },
-      { verificationCode: code },
-    );
+    await user.save();
+
     return {
       status: 'success',
       message: this.i18n.translate('test.HELLO', {
@@ -221,5 +236,67 @@ export class AuthService {
       userId: userId,
       expiryDate: expiryDate,
     });
+  }
+  async verify_Pass_Reset_Code(resetCode: resetCodeDto) {
+    //1)  get user based on reset code
+    const hashedResetCode = crypto
+      .createHash('sha256')
+      .update(resetCode.resetCode)
+      .digest('hex');
+    // 2) check if reset code is valid and not expired
+    const user = await this.userModel
+      .findOne({
+        passwordResetCode: hashedResetCode,
+        passwordResetExpires: { $gt: Date.now() },
+      })
+      .select('verificationCode')
+      .exec();
+
+    if (!user) {
+      throw new BadRequestException('Invalid code');
+    }
+    // 3) reset code is invalid
+    user.verificationCode = true;
+
+    await user.save();
+    return {
+      status: 'success',
+      message: 'Code is valid',
+    };
+  }
+  async resetPassword(LoginUserDto: LoginUserDto) {
+    // 1) get user by email
+    const user = await this.userModel
+      .findOne({ email: LoginUserDto.email })
+      .select('email role verificationCode passwordResetExpires');
+    if (!user) {
+      throw new BadRequestException('Email not found');
+    }
+    // 2) check if password reset code is valid and not expired
+    if (
+      !user.verificationCode ||
+      (user.passwordResetExpires ?? 0) < Date.now()
+    ) {
+      throw new BadRequestException('Invalid code our code expired');
+    }
+    // 3) save new password and  reset seatings
+    user.password = LoginUserDto.password;
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    user.verificationCode = undefined;
+    await user.save();
+    // 4) if everything is ok ,generate token
+    const userId = {
+      user_id: user._id.toString(),
+      role: user.role || 'user',
+      email: user.email,
+    };
+    const Tokens = await this.generate_Tokens(userId, '1h');
+    // 5) send email to user
+    return {
+      status: 'success',
+      message: 'Password reset successfully',
+      Tokens,
+    };
   }
 }

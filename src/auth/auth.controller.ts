@@ -16,6 +16,7 @@ import { LoginUserDto } from 'src/auth/shared/Dto/login.dto';
 import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
 import { AuthGuard } from './shared/guards/auth.guard';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
+import { resetCodeDto } from './shared/Dto/resetCode.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -62,14 +63,14 @@ export class AuthController {
 
   @Post('forgot-password')
   async forgotPassword(@Body() forgotPassword: ForgotPasswordDto) {
-    await this.authService.forgotPassword(forgotPassword);
+    return await this.authService.forgotPassword(forgotPassword);
   }
   @Post('reset-password')
-  async resetPassword() {
-    // Implement resetPassword logic
+  async resetPassword(@Body() LoginUserDto: LoginUserDto) {
+    return this.authService.resetPassword(LoginUserDto);
   }
-  @Post('verify-email')
-  async verifyEmail() {
-    // Implement verifyEmail logic
+  @Post('verify-Pass-Reset-Code')
+  async verify_Pass_Reset_Code(@Body() code: resetCodeDto) {
+    return this.authService.verify_Pass_Reset_Code(code);
   }
 }
