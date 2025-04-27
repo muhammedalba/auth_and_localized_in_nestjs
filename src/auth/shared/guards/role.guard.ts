@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { roles } from 'src/auth/shared/enums/role.enum';
 import { Roles_key } from '../decorators/rolesdecorator';
+import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 
 // add this to your request object in middleware or guards
 interface CustomRequest extends Request {
@@ -20,12 +21,17 @@ interface CustomRequest extends Request {
 
 @Injectable()
 export class RoleGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private readonly i18n: CustomI18nService,
+  ) {}
   canActivate(context: ExecutionContext): boolean {
     // Extract the user info from request
     const user = context.switchToHttp().getRequest<CustomRequest>().user;
     if (!user) {
-      throw new UnauthorizedException('unauthorized');
+      throw new UnauthorizedException(
+        this.i18n.translate('exception.NOT_LOGGED'),
+      );
     }
     // get required roles from method or class decorators
     const requiredRoles = this.reflector.getAllAndOverride<roles[]>(Roles_key, [
@@ -36,11 +42,11 @@ export class RoleGuard implements CanActivate {
     const hasRequiredRole: boolean = requiredRoles.some(
       (role) => user?.role.toString() === role.toString(),
     );
-    // console.log(requiredRoles);
-    // console.log(user.role);
-    // console.log(hasRequiredRole);
+
     if (!hasRequiredRole) {
-      throw new UnauthorizedException('you do not have required role');
+      throw new UnauthorizedException(
+        this.i18n.translate('exception.NOT_AUTHORIZED'),
+      );
     }
     // if user has required role or admin role, return true to allow access
     return hasRequiredRole;

@@ -22,7 +22,7 @@ import { resetCodeDto } from './shared/Dto/resetCode.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
   /*
-   * public: http://localhost:4000/api/v1/auth
+   * public: /api/v1/auth
    * method: POST
    */
   @Post('login')
@@ -30,7 +30,7 @@ export class AuthController {
     return this.authService.login(loginUserDto);
   }
   /*
-   * public: http://localhost:4000/api/v1/auth/register
+   * public: /api/v1/auth/register
    * method: POST
    */
   @Post('register')
@@ -44,31 +44,47 @@ export class AuthController {
     return await this.authService.register(createUserDto, file);
   }
   /*
-   * public: http://localhost:4000/api/v1/auth/refresh-token
+   * public: /api/v1/auth/refresh-token
    * method: POST
    */
   @Post('refresh-token')
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return await this.authService.refreshToken(refreshTokenDto);
   }
+  /*
+   * public: /api/v1/auth/logout
+   * method: POST
+   */
   @Post('logout')
   @UseGuards(AuthGuard)
   async logout(@Request() request: { user: { user_id: string } }) {
     return await this.authService.logout(request);
   }
-  @Get('me')
-  async getMe() {
-    // Implement getMe logic
+  @Get('me-profile')
+  @UseGuards(AuthGuard)
+  async getMe(@Request() request: { user: { user_id: string; role: string } }) {
+    return await this.authService.getMe(request);
   }
-
+  /*
+   * public: /api/v1/auth/forgot-password
+   * method: POST
+   */
   @Post('forgot-password')
   async forgotPassword(@Body() forgotPassword: ForgotPasswordDto) {
     return await this.authService.forgotPassword(forgotPassword);
   }
+  /*
+   * public: /api/v1/auth/verify-code
+   * method: POST
+   */
   @Post('reset-password')
   async resetPassword(@Body() LoginUserDto: LoginUserDto) {
     return this.authService.resetPassword(LoginUserDto);
   }
+  /*
+   * public: /api/v1/auth/verify-Pass-Reset-Code
+   * method: POST
+   */
   @Post('verify-Pass-Reset-Code')
   async verify_Pass_Reset_Code(@Body() code: resetCodeDto) {
     return this.authService.verify_Pass_Reset_Code(code);

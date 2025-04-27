@@ -1,0 +1,10 @@
+{
+    "EMAIL_EXISTS": " Email already exists",
+    "NOT_LOGGED": "You must be logged in to access ",
+    "NOT_AUTHORIZED": "You are not authorized to access",
+    "NOT_FOUND": "{variable} not found ",
+    "UNAUTHORIZED": "Unauthorized",
+    "INVALID": "Invalid {variable}",
+    "ُERROR_LOGOUT": "An error occurred while logging out.",
+    "ُERROR_SEND": "Error occurred while sending {variable}"
+}

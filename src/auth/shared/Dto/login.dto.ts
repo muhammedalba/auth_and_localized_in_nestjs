@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsString,
@@ -5,19 +6,22 @@ import {
   MaxLength,
   IsNotEmpty,
 } from 'class-validator';
-import { i18nValidationMessage } from 'nestjs-i18n';
-
 export class LoginUserDto {
-  @IsNotEmpty({
-    message: i18nValidationMessage('validation.notFound', { message: 'COOL' }),
+  @IsNotEmpty({ message: 'email is require' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
   })
-  // @IsNotEmpty({ message: 'البريد الإلكتروني مطلوب' })
-  @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
+  @IsEmail({}, { message: 'email must be a valid email' })
   email!: string;
 
-  @IsNotEmpty({ message: 'كلمة المرور مطلوبة' })
-  @IsString({ message: 'يجب أن تكون كلمة المرور نصًا' })
-  @MinLength(6, { message: 'يجب أن تكون كلمة المرور على الأقل 6 أحرف' })
-  @MaxLength(32, { message: 'يجب أن تكون كلمة المرور على الأكثر 32 حرفًا' })
+  @IsNotEmpty({ message: 'password is require' })
+  @IsString({ message: 'password" must be a string' })
+  @MinLength(6, {
+    message: 'The password must be at least 32 characters long.',
+  })
+  @MaxLength(32, { message: 'The password must be at most 32 characters.' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
+  })
   password!: string;
 }

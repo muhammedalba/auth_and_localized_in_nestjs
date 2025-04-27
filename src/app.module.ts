@@ -9,7 +9,6 @@ import { MongooseConfig } from './config/db/mongoose.config';
 import { I18nConfig } from './config/i18n/i18n.config';
 import { StaticConfig } from './config/static.config';
 import { JwtConfig } from './config/jwt/jwt.config';
-
 @Module({
   imports: [
     ConfigModule.forRoot({

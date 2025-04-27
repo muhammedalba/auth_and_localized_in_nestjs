@@ -1,11 +1,13 @@
+import { Transform } from 'class-transformer';
 import { IsEmail, IsNotEmpty } from 'class-validator';
-import { i18nValidationMessage } from 'nestjs-i18n';
 
 export class ForgotPasswordDto {
   @IsNotEmpty({
-    message: i18nValidationMessage('validation.notFound', { message: 'COOL' }),
+    message: 'email is require',
   })
-  // @IsNotEmpty({ message: 'البريد الإلكتروني مطلوب' })
-  @IsEmail({}, { message: 'البريد الإلكتروني غير صالح' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
+  })
+  @IsEmail({}, { message: 'email must be a valid email' })
   email!: string;
 }

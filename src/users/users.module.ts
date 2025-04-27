@@ -4,6 +4,7 @@ import { UsersController } from './users.controller';
 import { FileUploadDiskStorageModule } from 'src/file-upload-in-diskStorage/file-upload.module';
 import { MongooseModule } from '@nestjs/mongoose';
 import { UserSchema, User } from 'src/users/schemas/user.schema';
+import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { UserSchema, User } from 'src/users/schemas/user.schema';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, CustomI18nService],
   exports: [UsersService],
 })
 export class UsersModule {}

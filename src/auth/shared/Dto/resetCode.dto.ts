@@ -1,18 +1,16 @@
-import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
-import { i18nValidationMessage } from 'nestjs-i18n';
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsString, Length } from 'class-validator';
 
 export class resetCodeDto {
   @IsNotEmpty({
-    message: i18nValidationMessage('validation.notFound', { message: 'COOL' }),
+    message: 'reset code is required',
   })
   @IsString({
-    message: i18nValidationMessage('validation.string', { message: 'COOL' }),
+    message: 'reset code must be a string',
   })
-  @MaxLength(6, {
-    message: '6 characters max',
-  })
-  @MinLength(6, {
-    message: '6 characters min',
+  @Length(6, 6, { message: 'reset code must be 6 characters long' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
   })
   resetCode!: string;
 }

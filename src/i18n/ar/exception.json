@@ -1,0 +1,10 @@
+{
+    "EMAIL_EXISTS": "البريد الإلكتروني موجود بالفعل",
+    "NOT_LOGGED": "يجب تسجيل الدخول اول  ",
+    "NOT_AUTHORIZED": "ليس لديك الإذن للوصول",
+    "NOT_FOUND": "{variable} لم يتم العثور ",
+    "UNAUTHORIZED": "غير مصرح",
+    "INVALID": "غير صالح {variable}ال ",
+    "ُERROR_LOGOUT": "حدث خطأ أثناء تسجيل الخروج",
+    "ُERROR_SEND": "حدث خطأ أثناء إرسال {variable}"
+}

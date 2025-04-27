@@ -41,6 +41,29 @@ export class AuthService {
     private readonly fileUploadService: FileUploadService,
     private readonly jwtService: JwtService,
   ) {}
+  async getMe(request: { user: { user_id: string; role: string } }) {
+    // 1) get user from database
+    const user_Id = request.user.user_id;
+    const user = await this.userModel
+      .findById(user_Id)
+      .select('-__v -role -slug')
+      .lean();
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.NOT_FOUND', {
+          args: { variable: user_Id },
+        }),
+      );
+    }
+    // 2) add avatar url
+    if (
+      user.avatar &&
+      !user.avatar.startsWith(process.env.BASE_URL ?? 'http')
+    ) {
+      user.avatar = `${process.env.BASE_URL}${user.avatar}`;
+    }
+    return user;
+  }
   async register(
     createUserDto: CreateUserDto,
     file: Express.Multer.File,
@@ -51,7 +74,9 @@ export class AuthService {
       email: email,
     });
     if (isExists) {
-      throw new BadRequestException('Email already exists');
+      throw new BadRequestException(
+        this.i18n.translate('exception.EMAIL_EXISTS'),
+      );
     }
     //2) file upload service (save image in disk storage)
     let filePath = `/${process.env.UPLOADS_FOLDER}/users/avatar.png`;
@@ -91,18 +116,25 @@ export class AuthService {
     // 1) check email in database
     const user = await this.userModel
       .findOne({ email })
-      .select('password email role avatar');
+      .select('password email role avatar name');
+
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate('test.HELLO', { args: { email } }),
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'email our password' },
+        }),
       );
-      // throw new BadRequestException('Invalid credentials');
     }
     // 2) check password is valid
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      throw new BadRequestException('Invalid credentials');
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'email our password' },
+        }),
+      );
     }
+
     // 3) generate RefreshToken and access token and save the refresh token in database and delete old refresh token
     const userId = {
       user_id: user._id.toString(),
@@ -112,50 +144,26 @@ export class AuthService {
     const Tokens = await this.generate_Tokens(userId, '1h');
 
     //5) update avatar url
-    user.avatar = `${process.env.BASE_URL}${user.avatar}`;
+    // user.avatar = `${process.env.BASE_URL}${user.avatar}`;
     const userWithTokens = { ...user.toObject(), Tokens, status: 'success' };
     return userWithTokens;
   }
 
-  async refreshToken(refreshTokenDto: RefreshTokenDto) {
-    //1) find refresh token from database
-    const refreshToken = await this.RefreshTokenModel.findOne({
-      refresh_Token: refreshTokenDto.refresh_Token,
-      expiryDate: { $gt: new Date() },
-    }).select('refresh_Token expiryDate');
-
-    if (!refreshToken) {
-      throw new BadRequestException('Invalid Refresh Token');
-    }
-
-    //2) Verify ACCESS  token
-    const decoded_hToken = await this.jwtService.verifyAsync<DecodedToken>(
-      refreshTokenDto.access_token,
-    );
-    if (!decoded_hToken) {
-      throw new BadRequestException('Invalid  Token');
-    }
-    //3) verify user data from decoded token
-    const userData = {
-      user_id: decoded_hToken.user_id,
-      role: decoded_hToken.role || 'user',
-      email: decoded_hToken.email,
-    };
-    // generate new access and refresh token and delete old refresh token
-    const new_access_Tokens = await this.generate_Tokens(userData, '1h');
-    return new_access_Tokens;
-  }
-
   async logout(req: { user: { user_id: string } }) {
+    // 1) check if user is logged in
+    if (!req.user) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.NOT_LOGGED'),
+      );
+    }
     // delete  refresh tokens for the user
     try {
-      const deleted = await this.RefreshTokenModel.deleteOne({
+      await this.RefreshTokenModel.deleteOne({
         userId: req.user.user_id,
       });
-      console.log(deleted);
       return { message: 'Logged out successfully' };
     } catch {
-      throw new BadRequestException('Error occurred while logging out');
+      throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
     }
   }
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
@@ -168,7 +176,11 @@ export class AuthService {
         'email name passwordResetCode passwordResetExpires verificationCode',
       );
     if (!user) {
-      throw new BadRequestException('Email not found');
+      throw new BadRequestException(
+        this.i18n.translate('exception.NOT_FOUND', {
+          args: { variable: 'email' },
+        }),
+      );
     }
     // 2) generate hash reset rendom 6 digits and save it in db
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -195,7 +207,11 @@ export class AuthService {
       user.passwordResetExpires = undefined;
       user.verificationCode = undefined;
       await user.save();
-      throw new BadGatewayException('Error occurred while sending email');
+      throw new BadGatewayException(
+        this.i18n.translate('exception.ERROR_SEND', {
+          args: { variable: 'email' },
+        }),
+      );
     }
 
     // 4 ) save code in database
@@ -209,6 +225,132 @@ export class AuthService {
     };
   }
 
+  async verify_Pass_Reset_Code(resetCode: resetCodeDto) {
+    //1)  get user based on reset code
+    const hashedResetCode = crypto
+      .createHash('sha256')
+      .update(resetCode.resetCode)
+      .digest('hex');
+    // 2) check if reset code is valid and not expired
+    const user = await this.userModel
+      .findOne({
+        passwordResetCode: hashedResetCode,
+        passwordResetExpires: { $gt: Date.now() },
+      })
+      .select('verificationCode')
+      .exec();
+
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'code' },
+        }),
+      );
+    }
+    // 3) reset code is invalid
+    user.verificationCode = true;
+
+    await user.save();
+    return {
+      status: 'success',
+      message: 'Code is valid',
+    };
+  }
+  async resetPassword(LoginUserDto: LoginUserDto) {
+    // 1) get user by email
+    const user = await this.userModel
+      .findOne({ email: LoginUserDto.email })
+      .select('email role verificationCode passwordResetExpires');
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.NOT_FOUND', {
+          args: { variable: 'email' },
+        }),
+      );
+    }
+    // 2) check if password reset code is valid and not expired
+    if (
+      !user.verificationCode ||
+      (user.passwordResetExpires ?? 0) < Date.now()
+    ) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'code our expired' },
+        }),
+      );
+    }
+    // 3) save new password and  reset seatings
+    user.password = LoginUserDto.password;
+    user.passwordResetCode = undefined;
+    user.passwordResetExpires = undefined;
+    user.verificationCode = undefined;
+    await user.save();
+    // 4) if everything is ok ,generate token
+    const userId = {
+      user_id: user._id.toString(),
+      role: user.role || 'user',
+      email: user.email,
+    };
+    const Tokens = await this.generate_Tokens(userId, '1h');
+    // 5) send email to user
+    try {
+      await this.emailService.send_reset_password_success(
+        user.email,
+        user.name,
+        `${process.env.BASE_URL}/auth/login`,
+        `${process.env.BASE_URL}/auth/login`,
+        'Password reset successfully',
+      );
+    } catch {
+      throw new BadGatewayException(
+        this.i18n.translate('exception.ERROR_SEND', {
+          args: { variable: 'email' },
+        }),
+      );
+    }
+    return {
+      status: 'success',
+      message: 'Password reset successfully',
+      Tokens,
+    };
+  }
+
+  async refreshToken(refreshTokenDto: RefreshTokenDto) {
+    //1) find refresh token from database
+    const refreshToken = await this.RefreshTokenModel.findOne({
+      refresh_Token: refreshTokenDto.refresh_Token,
+      expiryDate: { $gt: new Date() },
+    }).select('refresh_Token expiryDate');
+
+    if (!refreshToken) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'refresh token' },
+        }),
+      );
+    }
+
+    //2) Verify ACCESS  token
+    const decoded_hToken = await this.jwtService.verifyAsync<DecodedToken>(
+      refreshTokenDto.access_token,
+    );
+    if (!decoded_hToken) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'access token' },
+        }),
+      );
+    }
+    //3) verify user data from decoded token
+    const userData = {
+      user_id: decoded_hToken.user_id,
+      role: decoded_hToken.role || 'user',
+      email: decoded_hToken.email,
+    };
+    // generate new access and refresh token and delete old refresh token
+    const new_access_Tokens = await this.generate_Tokens(userData, '1h');
+    return new_access_Tokens;
+  }
   // --- generate tokens and delete old refresh token --- //
   async generate_Tokens(userData: DecodedToken, expiresIn: string) {
     // 1) generate new access token
@@ -236,67 +378,5 @@ export class AuthService {
       userId: userId,
       expiryDate: expiryDate,
     });
-  }
-  async verify_Pass_Reset_Code(resetCode: resetCodeDto) {
-    //1)  get user based on reset code
-    const hashedResetCode = crypto
-      .createHash('sha256')
-      .update(resetCode.resetCode)
-      .digest('hex');
-    // 2) check if reset code is valid and not expired
-    const user = await this.userModel
-      .findOne({
-        passwordResetCode: hashedResetCode,
-        passwordResetExpires: { $gt: Date.now() },
-      })
-      .select('verificationCode')
-      .exec();
-
-    if (!user) {
-      throw new BadRequestException('Invalid code');
-    }
-    // 3) reset code is invalid
-    user.verificationCode = true;
-
-    await user.save();
-    return {
-      status: 'success',
-      message: 'Code is valid',
-    };
-  }
-  async resetPassword(LoginUserDto: LoginUserDto) {
-    // 1) get user by email
-    const user = await this.userModel
-      .findOne({ email: LoginUserDto.email })
-      .select('email role verificationCode passwordResetExpires');
-    if (!user) {
-      throw new BadRequestException('Email not found');
-    }
-    // 2) check if password reset code is valid and not expired
-    if (
-      !user.verificationCode ||
-      (user.passwordResetExpires ?? 0) < Date.now()
-    ) {
-      throw new BadRequestException('Invalid code our code expired');
-    }
-    // 3) save new password and  reset seatings
-    user.password = LoginUserDto.password;
-    user.passwordResetCode = undefined;
-    user.passwordResetExpires = undefined;
-    user.verificationCode = undefined;
-    await user.save();
-    // 4) if everything is ok ,generate token
-    const userId = {
-      user_id: user._id.toString(),
-      role: user.role || 'user',
-      email: user.email,
-    };
-    const Tokens = await this.generate_Tokens(userId, '1h');
-    // 5) send email to user
-    return {
-      status: 'success',
-      message: 'Password reset successfully',
-      Tokens,
-    };
   }
 }

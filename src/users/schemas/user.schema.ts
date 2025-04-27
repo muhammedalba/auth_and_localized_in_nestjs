@@ -79,6 +79,7 @@ export class User {
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
+
 // Hook for hashing password before saving
 UserSchema.pre('save', async function (next) {
   if (this.name) {
@@ -96,8 +97,9 @@ UserSchema.pre('save', async function (next) {
 });
 //update , findOne and findAll
 UserSchema.post('init', function (doc) {
-  // if query is not find and delete
   if (doc.avatar && doc.name) {
-    doc.avatar = `${process.env.BASE_URL}${doc.avatar}`;
+    if (!doc.avatar.startsWith(process.env.BASE_URL ?? 'http')) {
+      doc.avatar = `${process.env.BASE_URL}${doc.avatar}`;
+    }
   }
 });

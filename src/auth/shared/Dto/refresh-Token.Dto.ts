@@ -1,12 +1,19 @@
+import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsString } from 'class-validator';
-import { i18nValidationMessage } from 'nestjs-i18n';
 export class RefreshTokenDto {
   @IsNotEmpty({
-    message: i18nValidationMessage('validation.notFound', { message: 'COOL' }),
+    message: 'refresh token is required',
   })
   @IsString({ message: 'must be a string' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
+  })
   refresh_Token!: string;
-  @IsNotEmpty({ message: 'الرمز المتصل مطلوب' })
+
+  @IsNotEmpty({ message: 'access token is required' })
   @IsString({ message: 'must be a string' })
+  @Transform(({ value }: { value: string }) => value.trim(), {
+    toClassOnly: true,
+  })
   access_token!: string;
 }
