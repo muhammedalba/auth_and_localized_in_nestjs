@@ -6,10 +6,9 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 
 import { Model } from 'mongoose';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { CreateUserDto, UserRole } from 'src/users/dto/create-user.dto';
 import { User } from 'src/users/schemas/user.schema';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
-import slugify from 'slugify';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -22,6 +21,7 @@ import { EmailService } from 'src/email/email.service';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { LoginUserDto } from './shared/Dto/login.dto';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
+import { UpdateUserDto } from 'src/users/dto/update-user.dto';
 interface DecodedToken {
   user_id: string;
   email: string;
@@ -41,7 +41,9 @@ export class AuthService {
     private readonly fileUploadService: FileUploadService,
     private readonly jwtService: JwtService,
   ) {}
-  async getMe(request: { user: { user_id: string; role: string } }) {
+  async getMe(request: {
+    user: { user_id: string; role: string };
+  }): Promise<any> {
     // 1) get user from database
     const user_Id = request.user.user_id;
     const user = await this.userModel
@@ -64,11 +66,84 @@ export class AuthService {
     }
     return user;
   }
+  async updateMe(
+    userId: { user: { user_id: string } },
+    updateUserDto: UpdateUserDto,
+    file: Express.Multer.File,
+  ) {
+    //1) check if user exists
+    const user = await this.userModel
+      .findById(userId.user.user_id)
+      .select('avatar');
+
+    if (!user) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.NOT_FOUND', {
+          args: { variable: userId },
+        }),
+      );
+    }
+    // 2) check if email is in use
+    const isExists = await this.userModel.exists({
+      email: updateUserDto.email,
+      _id: { $ne: user._id },
+    });
+
+    if (isExists) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.EMAIL_EXISTS'),
+      );
+    }
+    // 3) update user avatar if new file is provided
+    if (file) {
+      const destinationPath = `./${process.env.UPLOADS_FOLDER}/users`;
+      const oldAvatarPath = `.${user.avatar}`;
+      const avatarPath = await this.fileUploadService.updateFile(
+        file,
+        destinationPath,
+        oldAvatarPath,
+      );
+      // 4) update user avatar
+      updateUserDto.avatar = avatarPath;
+    }
+    // 5) check if password is provided  delete  refresh tokens for the user
+    if (updateUserDto.password) {
+      try {
+        await this.RefreshTokenModel.deleteOne({
+          userId: user._id,
+        });
+      } catch {
+        throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
+      }
+    }
+    // 4) update user in the database
+    const updatedUser = await this.userModel
+      .findByIdAndUpdate(
+        { _id: user._id },
+        {
+          $set: {
+            name: updateUserDto.name,
+            email: updateUserDto.email,
+            avatar: updateUserDto.avatar,
+            password: updateUserDto.password,
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .select('-__v');
+
+    return {
+      status: 'success',
+      message: 'User updated successfully',
+      updatedUser,
+    };
+  }
+  // --- register user --- //
   async register(
     createUserDto: CreateUserDto,
     file: Express.Multer.File,
   ): Promise<User> {
-    const { email, name } = createUserDto;
+    const { email } = createUserDto;
     //1) check email if is in use
     const isExists = await this.userModel.exists({
       email: email,
@@ -90,19 +165,17 @@ export class AuthService {
         console.error('File upload failed:', error);
       }
     }
-
-    createUserDto.slug = name
-      ? slugify(name, { lower: true, strict: true })
-      : '';
-
     //3) save user to db with avatar path
     createUserDto.avatar = filePath;
+    // reset role to user
+    createUserDto.role = UserRole.USER;
     const newUser = await this.userModel.create(createUserDto);
     //4) generate refresh token and access token and save the refresh token in database and delete old refresh token
     const userId = {
       user_id: newUser._id.toString(),
-      role: 'user',
+      role: UserRole.USER,
       email: newUser.email,
+      passwordChangeAt: undefined,
     };
 
     const Tokens = await this.generate_Tokens(userId, '1h');
@@ -111,17 +184,20 @@ export class AuthService {
     const userWithTokens = { ...newUser.toObject(), Tokens, status: 'success' };
     return userWithTokens;
   }
-  async login(loginUserDto: LoginUserDto) {
+  async login(
+    loginUserDto: LoginUserDto,
+  ): Promise<{ status: string; userResponse: any; Tokens: any }> {
     const { email, password } = loginUserDto;
-    // 1) check email in database
+    // 1) Find user by email
     const user = await this.userModel
       .findOne({ email })
-      .select('password email role avatar name');
+      .select('password email role avatar name passwordChangeAt')
+      .lean();
 
     if (!user) {
       throw new BadRequestException(
         this.i18n.translate('exception.INVALID', {
-          args: { variable: 'email our password' },
+          args: { variable: 'email or password' },
         }),
       );
     }
@@ -130,7 +206,7 @@ export class AuthService {
     if (!isMatch) {
       throw new BadRequestException(
         this.i18n.translate('exception.INVALID', {
-          args: { variable: 'email our password' },
+          args: { variable: 'email or password' },
         }),
       );
     }
@@ -140,13 +216,21 @@ export class AuthService {
       user_id: user._id.toString(),
       role: user.role || 'user',
       email: user.email,
+      passwordChangeAt: user.passwordChangeAt,
     };
     const Tokens = await this.generate_Tokens(userId, '1h');
 
-    //5) update avatar url
-    // user.avatar = `${process.env.BASE_URL}${user.avatar}`;
-    const userWithTokens = { ...user.toObject(), Tokens, status: 'success' };
-    return userWithTokens;
+    // 5) Clean user data before returning
+    const userResponse = {
+      ...user,
+      avatar: `${process.env.BASE_URL}${user.avatar}`,
+      password: undefined,
+    };
+    return {
+      status: 'success',
+      userResponse,
+      Tokens,
+    };
   }
 
   async logout(req: { user: { user_id: string } }) {
@@ -174,7 +258,8 @@ export class AuthService {
       })
       .select(
         'email name passwordResetCode passwordResetExpires verificationCode',
-      );
+      )
+      .exec();
     if (!user) {
       throw new BadRequestException(
         this.i18n.translate('exception.NOT_FOUND', {
@@ -219,9 +304,7 @@ export class AuthService {
 
     return {
       status: 'success',
-      message: this.i18n.translate('test.HELLO', {
-        args: { email: forgotPasswordDto.email },
-      }),
+      message: 'Reset code sent to your email',
     };
   }
 
@@ -260,7 +343,8 @@ export class AuthService {
     // 1) get user by email
     const user = await this.userModel
       .findOne({ email: LoginUserDto.email })
-      .select('email role verificationCode passwordResetExpires');
+      .select('email role verificationCode passwordResetExpires')
+      .exec();
     if (!user) {
       throw new BadRequestException(
         this.i18n.translate('exception.NOT_FOUND', {
@@ -314,15 +398,17 @@ export class AuthService {
       Tokens,
     };
   }
-
+  // --- generate new access tokens and delete old refresh token --- //
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     //1) find refresh token from database
-    const refreshToken = await this.RefreshTokenModel.findOne({
+    const refresh_Token = await this.RefreshTokenModel.findOne({
       refresh_Token: refreshTokenDto.refresh_Token,
       expiryDate: { $gt: new Date() },
-    }).select('refresh_Token expiryDate');
+    })
+      .select('refresh_Token expiryDate')
+      .lean();
 
-    if (!refreshToken) {
+    if (!refresh_Token) {
       throw new BadRequestException(
         this.i18n.translate('exception.INVALID', {
           args: { variable: 'refresh token' },
@@ -331,10 +417,11 @@ export class AuthService {
     }
 
     //2) Verify ACCESS  token
-    const decoded_hToken = await this.jwtService.verifyAsync<DecodedToken>(
-      refreshTokenDto.access_token,
-    );
-    if (!decoded_hToken) {
+    const decoded_access_token =
+      await this.jwtService.verifyAsync<DecodedToken>(
+        refreshTokenDto.access_token,
+      );
+    if (!decoded_access_token) {
       throw new BadRequestException(
         this.i18n.translate('exception.INVALID', {
           args: { variable: 'access token' },
@@ -343,15 +430,15 @@ export class AuthService {
     }
     //3) verify user data from decoded token
     const userData = {
-      user_id: decoded_hToken.user_id,
-      role: decoded_hToken.role || 'user',
-      email: decoded_hToken.email,
+      user_id: decoded_access_token.user_id,
+      role: decoded_access_token.role || 'user',
+      email: decoded_access_token.email,
     };
     // generate new access and refresh token and delete old refresh token
     const new_access_Tokens = await this.generate_Tokens(userData, '1h');
     return new_access_Tokens;
   }
-  // --- generate tokens and delete old refresh token --- //
+
   async generate_Tokens(userData: DecodedToken, expiresIn: string) {
     // 1) generate new access token
     const access_token = await this.jwtService.signAsync(userData, {
@@ -368,7 +455,12 @@ export class AuthService {
   // delete old refresh token and save new refresh token in date base
   async store_Refresh_Token(userId: string, refresh_Token: string) {
     //1) delete old refresh token from database
-    await this.RefreshTokenModel.findOneAndDelete({ userId: userId });
+    await this.RefreshTokenModel.findOneAndDelete({
+      userId: userId,
+    })
+      .select('userId')
+      .lean();
+
     //2) add expiry date to refresh token
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 3);

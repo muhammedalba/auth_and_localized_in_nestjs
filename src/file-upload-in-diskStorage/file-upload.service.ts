@@ -73,7 +73,7 @@ export class FileUploadService {
   async deleteFile(Path: string): Promise<void> {
     const default_avatar_image: string = './uploads/users/avatar.png';
     // delete avatar file from disk, but not if it's the default avatar image path.
-    if (default_avatar_image != Path) {
+    if (default_avatar_image !== Path) {
       // Check if file exists before trying to delete it.
       // if (fs.existsSync(Path)) {
       try {

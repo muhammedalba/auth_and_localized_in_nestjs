@@ -35,7 +35,7 @@ export class User {
     trim: true,
     type: 'string',
     minlength: [6, 'password must be a least 8 characters'],
-    maxlength: [32, 'password must be a maximum of 100 characters'],
+    maxlength: [100, 'password must be a maximum of 100 characters'],
     select: false,
   })
   @Exclude()
@@ -71,6 +71,12 @@ export class User {
   passwordResetCode?: string;
   @Prop({
     required: false,
+    type: 'date',
+    default: undefined,
+  })
+  passwordChangeAt?: Date;
+  @Prop({
+    required: false,
     type: 'string',
     default: 'default.png',
     trim: true,
@@ -95,6 +101,28 @@ UserSchema.pre('save', async function (next) {
 
   next();
 });
+UserSchema.pre('findOneAndUpdate', async function (next) {
+  const update = this.getUpdate();
+  if (update && typeof update === 'object' && '$set' in update) {
+    // Check if the name field is being updated
+    if (update?.$set?.name && typeof update.$set.name === 'string') {
+      update.$set.slug = slugify(update.$set.name, { lower: true });
+    }
+    // Check if the password field is being updated
+    if (update?.$set?.password && typeof update.$set.password === 'string') {
+      const saltOrRounds = process.env.saltOrRounds || '10';
+      const hash = await bcrypt.hash(
+        update?.$set?.password,
+        parseInt(saltOrRounds, 10),
+      );
+      update.password = hash;
+      update.passwordChangeAt = new Date();
+    }
+  }
+
+  next();
+});
+
 //update , findOne and findAll
 UserSchema.post('init', function (doc) {
   if (doc.avatar && doc.name) {

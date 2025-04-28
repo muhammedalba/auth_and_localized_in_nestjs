@@ -17,6 +17,7 @@ import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
 import { AuthGuard } from './shared/guards/auth.guard';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
+import { UpdateUserDto } from 'src/users/dto/update-user.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -62,7 +63,9 @@ export class AuthController {
   }
   @Get('me-profile')
   @UseGuards(AuthGuard)
-  async getMe(@Request() request: { user: { user_id: string; role: string } }) {
+  async getMe(
+    @Request() request: { user: { user_id: string; role: string } },
+  ): Promise<any> {
     return await this.authService.getMe(request);
   }
   /*
@@ -88,5 +91,20 @@ export class AuthController {
   @Post('verify-Pass-Reset-Code')
   async verify_Pass_Reset_Code(@Body() code: resetCodeDto) {
     return this.authService.verify_Pass_Reset_Code(code);
+  }
+  /*
+   * public: /api/v1/auth/updateMe
+   * method: POST
+   */
+  @Post('updateMe')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor('avatar'))
+  async updateMe(
+    @Request() request: { user: { user_id: string } },
+    @Body() UpdateUserDto: UpdateUserDto,
+    @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))
+    file: Express.Multer.File,
+  ) {
+    return await this.authService.updateMe(request, UpdateUserDto, file);
   }
 }

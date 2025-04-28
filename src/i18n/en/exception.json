@@ -6,5 +6,7 @@
     "UNAUTHORIZED": "Unauthorized",
     "INVALID": "Invalid {variable}",
     "ُERROR_LOGOUT": "An error occurred while logging out.",
-    "ُERROR_SEND": "Error occurred while sending {variable}"
+    "ُERROR_SEND": "Error occurred while sending {variable}",
+    "ERROR_FILE_UPLOAD": "File upload failed",
+    "LOGIN_AGAIN": "Please log in again"
 }

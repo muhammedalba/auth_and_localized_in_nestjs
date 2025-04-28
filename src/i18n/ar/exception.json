@@ -6,5 +6,7 @@
     "UNAUTHORIZED": "غير مصرح",
     "INVALID": "غير صالح {variable}ال ",
     "ُERROR_LOGOUT": "حدث خطأ أثناء تسجيل الخروج",
-    "ُERROR_SEND": "حدث خطأ أثناء إرسال {variable}"
+    "ُERROR_SEND": "حدث خطأ أثناء إرسال {variable}",
+    "ERROR_FILE_UPLOAD": "فشل تحميل الملف",
+    "LOGIN_AGAIN": "  الرجاء تسجيل الدخول مرة أخرى"
 }
