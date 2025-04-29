@@ -17,7 +17,9 @@ export class MatchPasswordValidator implements ValidatorConstraintInterface {
       return false;
     }
 
-    return password.trim() === object.confirmPassword.trim();
+    return (
+      password.toString().trim() === object.confirmPassword.toString().trim()
+    );
   }
 
   defaultMessage(): string {

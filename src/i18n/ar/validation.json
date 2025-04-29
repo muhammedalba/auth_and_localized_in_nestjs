@@ -1,4 +1,5 @@
 {
+    "IS_String": "{property} غير صالح  ",
     "NOT_EMPTY": " {property} لا يمكن أن يكون فارغًا",
     "INVALID_EMAIL": "{property}  غير صالح",
     "MIN": "{property} هذه القيمة : \"{value}\" needs to be at least {constraints.0}, ow and {message}",

@@ -15,6 +15,6 @@ export class CreateBrandDto {
   name!: FieldLocalizeDto;
 
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'validation.NOT_EMPTY' })
   image?: string;
 }
