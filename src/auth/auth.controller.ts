@@ -3,7 +3,7 @@ import {
   Controller,
   Get,
   Post,
-  Request,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -27,8 +27,8 @@ export class AuthController {
    * method: POST
    */
   @Post('login')
-  login(@Body() loginUserDto: LoginUserDto) {
-    return this.authService.login(loginUserDto);
+  async login(@Body() loginUserDto: LoginUserDto): Promise<any> {
+    return await this.authService.login(loginUserDto);
   }
   /*
    * public: /api/v1/auth/register
@@ -40,7 +40,7 @@ export class AuthController {
     @Body() createUserDto: CreateUserDto,
     @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))
     file: Express.Multer.File,
-  ) {
+  ): Promise<any> {
     // Implement registration logic
     return await this.authService.register(createUserDto, file);
   }
@@ -49,7 +49,7 @@ export class AuthController {
    * method: POST
    */
   @Post('refresh-token')
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<any> {
     return await this.authService.refreshToken(refreshTokenDto);
   }
   /*
@@ -58,13 +58,13 @@ export class AuthController {
    */
   @Post('logout')
   @UseGuards(AuthGuard)
-  async logout(@Request() request: { user: { user_id: string } }) {
+  async logout(@Req() request: { user: { user_id: string } }): Promise<any> {
     return await this.authService.logout(request);
   }
   @Get('me-profile')
   @UseGuards(AuthGuard)
   async getMe(
-    @Request() request: { user: { user_id: string; role: string } },
+    @Req() request: { user: { user_id: string; role: string } },
   ): Promise<any> {
     return await this.authService.getMe(request);
   }
@@ -73,7 +73,9 @@ export class AuthController {
    * method: POST
    */
   @Post('forgot-password')
-  async forgotPassword(@Body() forgotPassword: ForgotPasswordDto) {
+  async forgotPassword(
+    @Body() forgotPassword: ForgotPasswordDto,
+  ): Promise<any> {
     return await this.authService.forgotPassword(forgotPassword);
   }
   /*
@@ -81,7 +83,7 @@ export class AuthController {
    * method: POST
    */
   @Post('reset-password')
-  async resetPassword(@Body() LoginUserDto: LoginUserDto) {
+  async resetPassword(@Body() LoginUserDto: LoginUserDto): Promise<any> {
     return this.authService.resetPassword(LoginUserDto);
   }
   /*
@@ -89,7 +91,7 @@ export class AuthController {
    * method: POST
    */
   @Post('verify-Pass-Reset-Code')
-  async verify_Pass_Reset_Code(@Body() code: resetCodeDto) {
+  async verify_Pass_Reset_Code(@Body() code: resetCodeDto): Promise<any> {
     return this.authService.verify_Pass_Reset_Code(code);
   }
   /*
@@ -100,11 +102,11 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @UseInterceptors(FileInterceptor('avatar'))
   async updateMe(
-    @Request() request: { user: { user_id: string } },
+    @Req() request: { user: { user_id: string } },
     @Body() UpdateUserDto: UpdateUserDto,
     @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))
     file: Express.Multer.File,
-  ) {
+  ): Promise<any> {
     return await this.authService.updateMe(request, UpdateUserDto, file);
   }
   /*
@@ -114,9 +116,9 @@ export class AuthController {
   @Post('changeMyPassword')
   @UseGuards(AuthGuard)
   async changeMyPassword(
-    @Request() request: { user: { user_id: string } },
+    @Req() request: { user: { user_id: string } },
     @Body() UpdateUserDto: UpdateUserDto,
-  ) {
+  ): Promise<any> {
     return await this.authService.changeMyPassword(request, UpdateUserDto);
   }
 }

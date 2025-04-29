@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+} from '@nestjs/common';
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
@@ -6,6 +10,7 @@ import { User } from 'src/users/shared/schemas/user.schema';
 import { UpdateUserDto } from '../../users/shared/dto/update-user.dto';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 import { RefreshToken } from '../shared/schema/refresh-token.schema';
+import { EmailService } from 'src/email/email.service';
 
 type file = Express.Multer.File;
 
@@ -15,8 +20,9 @@ export class userProfileService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
-    private readonly fileUploadService: FileUploadService,
     private readonly i18n: CustomI18nService,
+    private readonly fileUploadService: FileUploadService,
+    private readonly emailService: EmailService,
   ) {}
   async getMe(request: {
     user: { user_id: string; role: string };
@@ -47,7 +53,7 @@ export class userProfileService {
     userId: { user: { user_id: string } },
     updateUserDto: UpdateUserDto,
     file: file,
-  ) {
+  ): Promise<any> {
     //1) check if user exists
     const user = await this.userModel
       .findById(userId.user.user_id)
@@ -107,7 +113,7 @@ export class userProfileService {
   async changeMyPassword(
     userId: { user: { user_id: string } },
     updateUserDto: UpdateUserDto,
-  ) {
+  ): Promise<any> {
     // 1) update user password
     const user = await this.userModel
       .findByIdAndUpdate(
@@ -133,8 +139,20 @@ export class userProfileService {
       await this.RefreshTokenModel.deleteOne({
         userId: userId.user.user_id,
       }).lean();
+      // 5) send email to user
+      await this.emailService.send_reset_password_success(
+        user.email,
+        user.name,
+        `${process.env.BASE_URL}/auth/login`,
+        `${process.env.BASE_URL}/auth/login`,
+        'Password reset successfully',
+      );
     } catch {
-      throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
+      throw new BadGatewayException(
+        this.i18n.translate('exception.ERROR_SEND', {
+          args: { variable: 'email' },
+        }),
+      );
     }
 
     return {

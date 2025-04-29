@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { I18nContext } from 'nestjs-i18n';
 
 @Injectable()
 export class EmailService {
@@ -10,11 +11,18 @@ export class EmailService {
    * @param name - The recipient's name.
    * @param code - The verification code to be sent.
    */
-  async sendRandomCode(to: string, name: string, code: string): Promise<void> {
+
+  async sendRandomCode(
+    to: string,
+    name: string,
+    code: string,
+    subject: string,
+  ): Promise<void> {
+    const lang = I18nContext.current()?.lang ?? process.env.DEFAULT_LANG;
     await this.mailerService.sendMail({
       to,
-      template: 'verify-code',
-      subject: 'رمز التحقق من بريدك الإلكتروني',
+      template: `verify-code-${lang}`,
+      subject,
       context: {
         name,
         code,
@@ -28,10 +36,12 @@ export class EmailService {
     loginLink: string,
     subject: string,
   ): Promise<void> {
+    const lang = I18nContext.current()?.lang ?? process.env.DEFAULT_LANG;
+
     await this.mailerService.sendMail({
       to,
       subject,
-      template: './reset-pass',
+      template: `reset-pass-${lang}`,
       context: {
         name,
         supportLink,

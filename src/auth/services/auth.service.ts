@@ -22,9 +22,9 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
+    private readonly fileUploadService: FileUploadService,
     private readonly i18n: CustomI18nService,
     private readonly tokenService: tokenService,
-    private readonly fileUploadService: FileUploadService,
     private readonly passwordResetService: PasswordResetService,
     private readonly userProfileService: userProfileService,
   ) {}
@@ -37,13 +37,13 @@ export class AuthService {
     userId: { user: { user_id: string } },
     updateUserDto: UpdateUserDto,
     file: file,
-  ) {
+  ): Promise<any> {
     return await this.userProfileService.updateMe(userId, updateUserDto, file);
   }
   async changeMyPassword(
     userId: { user: { user_id: string } },
     updateUserDto: UpdateUserDto,
-  ) {
+  ): Promise<any> {
     return await this.userProfileService.changeMyPassword(
       userId,
       updateUserDto,
@@ -141,7 +141,7 @@ export class AuthService {
     };
   }
 
-  async logout(req: { user: { user_id: string } }) {
+  async logout(req: { user: { user_id: string } }): Promise<any> {
     // 1) check if user is logged in
     if (!req.user) {
       throw new BadRequestException(
@@ -158,18 +158,18 @@ export class AuthService {
       throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
     }
   }
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<any> {
     return await this.passwordResetService.forgotPassword(forgotPasswordDto);
   }
 
-  async verify_Pass_Reset_Code(resetCode: resetCodeDto) {
+  async verify_Pass_Reset_Code(resetCode: resetCodeDto): Promise<any> {
     return await this.passwordResetService.verify_Pass_Reset_Code(resetCode);
   }
-  async resetPassword(LoginUserDto: LoginUserDto) {
+  async resetPassword(LoginUserDto: LoginUserDto): Promise<any> {
     return await this.passwordResetService.resetPassword(LoginUserDto);
   }
 
-  async refreshToken(refreshTokenDto: RefreshTokenDto) {
+  async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<any> {
     return await this.tokenService.refreshToken(refreshTokenDto);
   }
 }

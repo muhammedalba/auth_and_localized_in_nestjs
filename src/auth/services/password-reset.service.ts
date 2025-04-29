@@ -26,12 +26,12 @@ interface DecodedToken {
 @Injectable()
 export class PasswordResetService {
   constructor(
-    private readonly i18n: CustomI18nService,
-    private readonly emailService: EmailService,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
+    private readonly i18n: CustomI18nService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
@@ -70,6 +70,7 @@ export class PasswordResetService {
         user.email,
         user.name,
         resetCode.toString(),
+        this.i18n.translate('email.VERIFY_CODE_SUBJECT'),
       );
     } catch {
       user.passwordResetCode = undefined;
