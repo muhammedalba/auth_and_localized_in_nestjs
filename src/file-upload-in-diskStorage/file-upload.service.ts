@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { extname } from 'path';
-import { writeFile } from 'fs/promises';
 import * as fs from 'fs';
+import * as sharp from 'sharp';
 import { v4 as uuidv4 } from 'uuid';
 @Injectable()
 export class FileUploadService {
@@ -20,12 +20,19 @@ export class FileUploadService {
       const ext = extname(file.originalname);
       const safeExt = ext.length > 0 ? ext : '.png';
       const filename = `${file.fieldname}-${timestamp}-${uuidv4()}${safeExt}`;
-      const filePath = `${destinationPath}/${filename}`;
+      const outputPath = `${destinationPath}/${filename}`;
+      // const outputPath = `${destinationPath}/${filename}`;
       //2) Check if the destination directory exists, and create it if not.
       await fs.promises.mkdir(destinationPath, { recursive: true });
       //3) save image file in the destination directory
-      await writeFile(filePath, file.buffer);
-      const file_path = filePath.startsWith('.') ? filePath.slice(1) : filePath;
+      await sharp(file.buffer)
+        .resize(800, 400, { fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 70 })
+        .toFile(outputPath);
+      // await writeFile(outputPath, file.buffer);
+      const file_path = outputPath.startsWith('.')
+        ? outputPath.slice(1)
+        : outputPath;
       return file_path;
     } catch (error) {
       console.error('Error saving file to disk:', error);

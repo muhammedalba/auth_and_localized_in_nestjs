@@ -8,8 +8,8 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
+import { AuthService } from './services/auth.service';
+import { CreateUserDto } from 'src/users/shared/dto/create-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
 import { LoginUserDto } from 'src/auth/shared/Dto/login.dto';
@@ -17,7 +17,7 @@ import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
 import { AuthGuard } from './shared/guards/auth.guard';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
-import { UpdateUserDto } from 'src/users/dto/update-user.dto';
+import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -106,5 +106,17 @@ export class AuthController {
     file: Express.Multer.File,
   ) {
     return await this.authService.updateMe(request, UpdateUserDto, file);
+  }
+  /*
+   * public: /api/v1/auth/changeMyPassword
+   * method: POST
+   */
+  @Post('changeMyPassword')
+  @UseGuards(AuthGuard)
+  async changeMyPassword(
+    @Request() request: { user: { user_id: string } },
+    @Body() UpdateUserDto: UpdateUserDto,
+  ) {
+    return await this.authService.changeMyPassword(request, UpdateUserDto);
   }
 }

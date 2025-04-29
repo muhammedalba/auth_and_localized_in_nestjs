@@ -9,7 +9,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Request } from 'express';
 import { Model } from 'mongoose';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
-import { User } from 'src/users/schemas/user.schema';
+import { User } from 'src/users/shared/schemas/user.schema';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -33,19 +33,17 @@ export class AuthGuard implements CanActivate {
     }
 
     //3) Verify the token
-    const payload = await this.jwtService.verifyAsync<{
-      user_id: string;
-      email: string;
-      role: string;
-      iat: number;
-    }>(token);
-    if (!payload) {
+    let payload: { user_id: string; email: string; role: string; iat: number };
+    try {
+      payload = await this.jwtService.verifyAsync(token);
+    } catch {
       throw new UnauthorizedException(
         this.i18n.translate('exception.INVALID', {
           args: { variable: 'token' },
         }),
       );
     }
+
     const tokenIssuedAt = payload.iat;
     //) get the user from the database
     const user = await this.userModel
@@ -60,9 +58,8 @@ export class AuthGuard implements CanActivate {
       );
     }
     if (user.passwordChangeAt) {
-      const passwordChangedAt = parseInt(
-        (user.passwordChangeAt.getTime() / 1000).toString(),
-        10,
+      const passwordChangedAt = Math.floor(
+        user.passwordChangeAt.getTime() / 1000,
       );
       // Check if the password was changed after the token was issued
       if (tokenIssuedAt < passwordChangedAt) {

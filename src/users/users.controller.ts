@@ -14,9 +14,9 @@ import { UsersService } from './users.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 
 import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
-import { CreateUserDto } from './dto/create-user.dto';
-import { IdParamDto } from './dto/id-param.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { CreateUserDto } from './shared/dto/create-user.dto';
+import { IdParamDto } from './shared/dto/id-param.dto';
+import { UpdateUserDto } from './shared/dto/update-user.dto';
 import { AuthGuard } from 'src/auth/shared/guards/auth.guard';
 import { roles } from 'src/auth/shared/enums/role.enum';
 import { RoleGuard } from 'src/auth/shared/guards/role.guard';

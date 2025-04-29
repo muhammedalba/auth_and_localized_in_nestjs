@@ -6,11 +6,11 @@ import {
 import { Model } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
-import { User } from 'src/users/schemas/user.schema';
-import { CreateUserDto } from './dto/create-user.dto';
+import { User } from 'src/users/shared/schemas/user.schema';
+import { CreateUserDto } from './shared/dto/create-user.dto';
 import slugify from 'slugify';
 import { plainToInstance } from 'class-transformer';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateUserDto } from './shared/dto/update-user.dto';
 
 type file = Express.Multer.File;
 

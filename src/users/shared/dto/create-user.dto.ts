@@ -9,7 +9,7 @@ import {
   Validate,
   IsLowercase,
 } from 'class-validator';
-import { MatchPasswordValidator } from '../shared/validators/match-password.validator';
+import { MatchPasswordValidator } from '../validators/match-password.validator';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -43,6 +43,7 @@ export class CreateUserDto {
   @MaxLength(32, {
     message: 'يجب أن يكون تأكيد كلمة المرور على الأكثر 32 حرفًا',
   })
+  @Validate(MatchPasswordValidator)
   confirmPassword!: string;
 
   @IsOptional()
