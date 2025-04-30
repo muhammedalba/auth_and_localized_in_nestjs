@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Req,
+  Res,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -18,7 +19,7 @@ import { AuthGuard } from './shared/guards/auth.guard';
 import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
-
+import { Request, Response } from 'express';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -27,8 +28,11 @@ export class AuthController {
    * method: POST
    */
   @Post('login')
-  async login(@Body() loginUserDto: LoginUserDto): Promise<any> {
-    return await this.authService.login(loginUserDto);
+  async login(
+    @Body() loginUserDto: LoginUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    return await this.authService.login(loginUserDto, res);
   }
   /*
    * public: /api/v1/auth/register
@@ -38,19 +42,24 @@ export class AuthController {
   @UseInterceptors(FileInterceptor('avatar'))
   async register(
     @Body() createUserDto: CreateUserDto,
+    @Res({ passthrough: true }) res: Response,
     @UploadedFile(createParseFilePipe('1MB', ['png', 'jpeg', 'webp']))
     file: Express.Multer.File,
   ): Promise<any> {
     // Implement registration logic
-    return await this.authService.register(createUserDto, file);
+    return await this.authService.register(createUserDto, file, res);
   }
   /*
    * public: /api/v1/auth/refresh-token
    * method: POST
    */
   @Post('refresh-token')
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto): Promise<any> {
-    return await this.authService.refreshToken(refreshTokenDto);
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    return await this.authService.refreshToken(refreshTokenDto, req, res);
   }
   /*
    * public: /api/v1/auth/logout
@@ -58,8 +67,11 @@ export class AuthController {
    */
   @Post('logout')
   @UseGuards(AuthGuard)
-  async logout(@Req() request: { user: { user_id: string } }): Promise<any> {
-    return await this.authService.logout(request);
+  async logout(
+    @Req() request: { user: { user_id: string } },
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    return await this.authService.logout(request, res);
   }
   @Get('me-profile')
   @UseGuards(AuthGuard)

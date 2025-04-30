@@ -15,6 +15,9 @@ import { PasswordResetService } from './password-reset.service';
 import { tokenService } from '../shared/services/token.service';
 import { RefreshTokenDto } from '../shared/Dto/refresh-Token.Dto';
 import { userProfileService } from './user-profile.service';
+import { CookieService } from '../shared/services/cookie.service';
+import { Request, Response } from 'express';
+
 type file = Express.Multer.File;
 @Injectable()
 export class AuthService {
@@ -27,6 +30,7 @@ export class AuthService {
     private readonly tokenService: tokenService,
     private readonly passwordResetService: PasswordResetService,
     private readonly userProfileService: userProfileService,
+    private readonly cookieService: CookieService,
   ) {}
   async getMe(request: {
     user: { user_id: string; role: string };
@@ -50,7 +54,11 @@ export class AuthService {
     );
   }
   // --- register user --- //
-  async register(createUserDto: CreateUserDto, file: file): Promise<User> {
+  async register(
+    createUserDto: CreateUserDto,
+    file: file,
+    res: Response,
+  ): Promise<User> {
     const { email } = createUserDto;
     //1) check email if is in use
     const isExists = await this.userModel.exists({
@@ -87,6 +95,9 @@ export class AuthService {
     };
 
     const Tokens = await this.tokenService.generate_Tokens(userId, '1h');
+    // 4) Set cookies using CookieService
+    this.cookieService.setRefreshTokenCookie(res, Tokens.refresh_Token);
+    this.cookieService.setAccessTokenCookie(res, Tokens.access_token);
     //5) update avatar url and tokens
     newUser.avatar = `${process.env.BASE_URL}${filePath}`;
     const userWithTokens = { ...newUser.toObject(), Tokens, status: 'success' };
@@ -94,12 +105,13 @@ export class AuthService {
   }
   async login(
     loginUserDto: LoginUserDto,
+    res: Response,
   ): Promise<{ status: string; userResponse: any; Tokens: any }> {
     const { email, password } = loginUserDto;
     // 1) Find user by email
     const user = await this.userModel
       .findOne({ email })
-      .select('password email role avatar name passwordChangeAt')
+      .select('password email role avatar name ')
       .lean();
 
     if (!user) {
@@ -124,9 +136,11 @@ export class AuthService {
       user_id: user._id.toString(),
       role: user.role || 'user',
       email: user.email,
-      passwordChangeAt: user.passwordChangeAt,
     };
     const Tokens = await this.tokenService.generate_Tokens(userId, '1h');
+    // 4) Set cookies using CookieService
+    this.cookieService.setRefreshTokenCookie(res, Tokens.refresh_Token);
+    this.cookieService.setAccessTokenCookie(res, Tokens.access_token);
 
     // 5) Clean user data before returning
     const userResponse = {
@@ -134,6 +148,7 @@ export class AuthService {
       avatar: `${process.env.BASE_URL}${user.avatar}`,
       password: undefined,
     };
+
     return {
       status: 'success',
       userResponse,
@@ -141,7 +156,10 @@ export class AuthService {
     };
   }
 
-  async logout(req: { user: { user_id: string } }): Promise<any> {
+  async logout(
+    req: { user: { user_id: string } },
+    res: Response,
+  ): Promise<any> {
     // 1) check if user is logged in
     if (!req.user) {
       throw new BadRequestException(
@@ -153,6 +171,7 @@ export class AuthService {
       await this.RefreshTokenModel.deleteOne({
         userId: req.user.user_id,
       });
+      this.cookieService.clearCookies(res);
       return { message: 'Logged out successfully' };
     } catch {
       throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
@@ -169,7 +188,11 @@ export class AuthService {
     return await this.passwordResetService.resetPassword(LoginUserDto);
   }
 
-  async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<any> {
-    return await this.tokenService.refreshToken(refreshTokenDto);
+  async refreshToken(
+    refreshTokenDto: RefreshTokenDto,
+    req: Request,
+    res: Response,
+  ): Promise<any> {
+    return await this.tokenService.refreshToken(refreshTokenDto, req, res);
   }
 }

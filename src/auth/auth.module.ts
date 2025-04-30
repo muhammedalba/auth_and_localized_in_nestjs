@@ -13,6 +13,7 @@ import { EmailModule } from 'src/email/email.module';
 import { PasswordResetService } from './services/password-reset.service';
 import { tokenService } from './shared/services/token.service';
 import { userProfileService } from './services/user-profile.service';
+import { CookieService } from './shared/services/cookie.service';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { userProfileService } from './services/user-profile.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    CookieService,
     CustomI18nService,
     PasswordResetService,
     tokenService,

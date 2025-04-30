@@ -6,6 +6,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 import { RefreshToken } from '../schema/refresh-token.schema';
 import { RefreshTokenDto } from '../Dto/refresh-Token.Dto';
+import { Request, Response } from 'express';
+import { CookieService } from './cookie.service';
 
 interface DecodedToken {
   user_id: string;
@@ -22,14 +24,21 @@ export class tokenService {
     @InjectModel(RefreshToken.name)
     private RefreshTokenModel: Model<RefreshToken>,
     private readonly jwtService: JwtService,
+    private readonly cookieService: CookieService,
   ) {}
 
   // --- generate new access tokens and delete old refresh token --- //
-  async refreshToken(refreshTokenDto: RefreshTokenDto) {
+  async refreshToken(
+    refreshTokenDto: RefreshTokenDto,
+    req: Request,
+    res: Response,
+  ) {
+    const refreshToken = req.cookies['refresh_token'] as string;
+    console.log(refreshToken);
+
     //1) find refresh token from database
     const refresh_Token = await this.RefreshTokenModel.findOne({
-      refresh_Token: refreshTokenDto.refresh_Token,
-      expiryDate: { $gt: new Date() },
+      refresh_Token: refreshToken,
     })
       .select('refresh_Token expiryDate')
       .lean();
@@ -41,7 +50,16 @@ export class tokenService {
         }),
       );
     }
-
+    if (refresh_Token.expiryDate.getTime() < Date.now()) {
+      await this.RefreshTokenModel.deleteOne({
+        refresh_Token: refreshToken,
+      });
+      throw new BadRequestException(
+        this.i18n.translate('exception.INVALID', {
+          args: { variable: 'access token' },
+        }),
+      );
+    }
     //2) Verify ACCESS  token
     const decoded_access_token =
       await this.jwtService.verifyAsync<DecodedToken>(
@@ -62,7 +80,16 @@ export class tokenService {
     };
     // generate new access and refresh token and delete old refresh token
     const new_access_Tokens = await this.generate_Tokens(userData, '1h');
-    return new_access_Tokens;
+    // 4) Set cookies using CookieService
+    this.cookieService.setRefreshTokenCookie(
+      res,
+      new_access_Tokens.refresh_Token,
+    );
+    this.cookieService.setAccessTokenCookie(
+      res,
+      new_access_Tokens.access_token,
+    );
+    return new_access_Tokens.access_token;
   }
 
   async generate_Tokens(userData: DecodedToken, expiresIn: string) {
