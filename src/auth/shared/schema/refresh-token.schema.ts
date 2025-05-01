@@ -6,7 +6,7 @@ export class RefreshToken {
   @Prop({
     type: 'string',
     trim: true,
-    unique: false,
+    unique: true,
     required: true,
   })
   refresh_Token!: string;

@@ -9,7 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { AuthService } from './services/auth.service';
+import { AuthService } from './auth.service';
 import { CreateUserDto } from 'src/users/shared/dto/create-user.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { createParseFilePipe } from 'src/shared/files/files-validation-factory';
@@ -54,6 +54,7 @@ export class AuthController {
    * method: POST
    */
   @Post('refresh-token')
+  @UseGuards(AuthGuard)
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
     @Req() req: Request,
@@ -95,8 +96,11 @@ export class AuthController {
    * method: POST
    */
   @Post('reset-password')
-  async resetPassword(@Body() LoginUserDto: LoginUserDto): Promise<any> {
-    return this.authService.resetPassword(LoginUserDto);
+  async resetPassword(
+    @Body() LoginUserDto: LoginUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    return this.authService.resetPassword(LoginUserDto, res);
   }
   /*
    * public: /api/v1/auth/verify-Pass-Reset-Code

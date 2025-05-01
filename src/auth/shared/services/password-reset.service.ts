@@ -7,31 +7,23 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User } from 'src/users/shared/schemas/user.schema';
 import * as crypto from 'crypto';
-import { JwtService } from '@nestjs/jwt';
-import { v4 as uuidv4 } from 'uuid';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 import { EmailService } from 'src/email/email.service';
-import { RefreshToken } from '../shared/schema/refresh-token.schema';
-import { ForgotPasswordDto } from '../shared/Dto/forgotPassword.dto.';
-import { resetCodeDto } from '../shared/Dto/resetCode.dto';
-import { LoginUserDto } from '../shared/Dto/login.dto';
-interface DecodedToken {
-  user_id: string;
-  email: string;
-  role?: string;
-  iat?: number;
-  exp?: number;
-}
+import { ForgotPasswordDto } from '../Dto/forgotPassword.dto.';
+import { resetCodeDto } from '../Dto/resetCode.dto';
+import { LoginUserDto } from '../Dto/login.dto';
+import { CookieService } from './cookie.service';
+import { Response } from 'express';
+import { tokenService } from './token.service';
 
 @Injectable()
 export class PasswordResetService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
-    @InjectModel(RefreshToken.name)
-    private RefreshTokenModel: Model<RefreshToken>,
-    private readonly i18n: CustomI18nService,
-    private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
+    private readonly cookieService: CookieService,
+    private readonly tokenService: tokenService,
+    private readonly i18n: CustomI18nService,
   ) {}
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
@@ -46,12 +38,12 @@ export class PasswordResetService {
       .exec();
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate('exception.NOT_FOUND', {
+        this.i18n.translate('exception.USER_NOT_FOUND', {
           args: { variable: 'email' },
         }),
       );
     }
-    // 2) generate hash reset rendom 6 digits and save it in db
+    // 2) generate hash reset random 6 digits and save it in db
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedResetCode = crypto
       .createHash('sha256')
@@ -78,9 +70,7 @@ export class PasswordResetService {
       user.verificationCode = undefined;
       await user.save();
       throw new BadGatewayException(
-        this.i18n.translate('exception.ERROR_SEND', {
-          args: { variable: 'email' },
-        }),
+        this.i18n.translate('exception.EMAIL_SEND_FAILED'),
       );
     }
 
@@ -89,7 +79,7 @@ export class PasswordResetService {
 
     return {
       status: 'success',
-      message: 'Reset code sent to your email',
+      message: this.i18n.translate('success.RESET_CODE_SENDED'),
     };
   }
 
@@ -110,9 +100,7 @@ export class PasswordResetService {
 
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate('exception.INVALID', {
-          args: { variable: 'code' },
-        }),
+        this.i18n.translate('exception.CODE_INCORRECT'),
       );
     }
     // 3) reset code is invalid
@@ -121,10 +109,10 @@ export class PasswordResetService {
     await user.save();
     return {
       status: 'success',
-      message: 'Code is valid',
+      message: this.i18n.translate('success.RESET_CODE_VALID'),
     };
   }
-  async resetPassword(LoginUserDto: LoginUserDto) {
+  async resetPassword(LoginUserDto: LoginUserDto, res: Response) {
     // 1) get user by email
     const user = await this.userModel
       .findOne({ email: LoginUserDto.email })
@@ -132,9 +120,7 @@ export class PasswordResetService {
       .exec();
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate('exception.NOT_FOUND', {
-          args: { variable: 'email' },
-        }),
+        this.i18n.translate('exception.USER_NOT_FOUND'),
       );
     }
     // 2) check if password reset code is valid and not expired
@@ -143,9 +129,7 @@ export class PasswordResetService {
       (user.passwordResetExpires ?? 0) < Date.now()
     ) {
       throw new BadRequestException(
-        this.i18n.translate('exception.INVALID', {
-          args: { variable: 'code our expired' },
-        }),
+        this.i18n.translate('exception.CODE_EXPIRED'),
       );
     }
     // 3) save new password and  reset seatings
@@ -160,7 +144,10 @@ export class PasswordResetService {
       role: user.role || 'user',
       email: user.email,
     };
-    const Tokens = await this.generate_Tokens(userId, '1h');
+    const Tokens = await this.tokenService.generate_Tokens(userId, '1h');
+    // 4) Set cookies using CookieService
+    this.cookieService.setRefreshTokenCookie(res, Tokens.refresh_Token);
+    this.cookieService.setAccessTokenCookie(res, Tokens.access_token);
     // 5) send email to user
     try {
       await this.emailService.send_reset_password_success(
@@ -168,53 +155,17 @@ export class PasswordResetService {
         user.name,
         `${process.env.BASE_URL}/auth/login`,
         `${process.env.BASE_URL}/auth/login`,
-        'Password reset successfully',
+        this.i18n.translate('success.SUCCESS_RESET_PASSWORD'),
       );
     } catch {
       throw new BadGatewayException(
-        this.i18n.translate('exception.ERROR_SEND', {
-          args: { variable: 'email' },
-        }),
+        this.i18n.translate('exception.EMAIL_SEND_FAILED'),
       );
     }
     return {
       status: 'success',
-      message: 'Password reset successfully',
-      Tokens,
+      message: this.i18n.translate('success.SUCCESS_RESET_PASSWORD'),
+      access_token: Tokens.access_token,
     };
-  }
-  // --- generate new access tokens and delete old refresh token --- //
-
-  async generate_Tokens(userData: DecodedToken, expiresIn: string) {
-    // 1) generate new access token
-    const access_token = await this.jwtService.signAsync(userData, {
-      expiresIn: expiresIn,
-    });
-    //2) generate new refresh token
-    const refresh_Token = uuidv4();
-    // save refresh token in database
-    await this.store_Refresh_Token(userData.user_id, refresh_Token);
-
-    return { access_token, refresh_Token };
-  }
-
-  // delete old refresh token and save new refresh token in date base
-  async store_Refresh_Token(userId: string, refresh_Token: string) {
-    //1) delete old refresh token from database
-    await this.RefreshTokenModel.findOneAndDelete({
-      userId: userId,
-    })
-      .select('userId')
-      .lean();
-
-    //2) add expiry date to refresh token
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 3);
-    //3) save refresh token in database
-    await this.RefreshTokenModel.create({
-      refresh_Token: refresh_Token,
-      userId: userId,
-      expiryDate: expiryDate,
-    });
   }
 }

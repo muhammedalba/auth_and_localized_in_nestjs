@@ -5,18 +5,18 @@ import { CreateUserDto, UserRole } from 'src/users/shared/dto/create-user.dto';
 import { User } from 'src/users/shared/schemas/user.schema';
 import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.service';
 import * as bcrypt from 'bcrypt';
-import { RefreshToken } from '../shared/schema/refresh-token.schema';
+import { RefreshToken } from './shared/schema/refresh-token.schema';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
-import { ForgotPasswordDto } from '../shared/Dto/forgotPassword.dto.';
-import { LoginUserDto } from '../shared/Dto/login.dto';
-import { resetCodeDto } from '../shared/Dto/resetCode.dto';
+import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
+import { LoginUserDto } from './shared/Dto/login.dto';
+import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
-import { PasswordResetService } from './password-reset.service';
-import { tokenService } from '../shared/services/token.service';
-import { RefreshTokenDto } from '../shared/Dto/refresh-Token.Dto';
-import { userProfileService } from './user-profile.service';
-import { CookieService } from '../shared/services/cookie.service';
+import { tokenService } from './shared/services/token.service';
+import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
+import { CookieService } from './shared/services/cookie.service';
 import { Request, Response } from 'express';
+import { PasswordResetService } from './shared/services/password-reset.service';
+import { userProfileService } from './shared/services/user-profile.service';
 
 type file = Express.Multer.File;
 @Injectable()
@@ -32,33 +32,13 @@ export class AuthService {
     private readonly userProfileService: userProfileService,
     private readonly cookieService: CookieService,
   ) {}
-  async getMe(request: {
-    user: { user_id: string; role: string };
-  }): Promise<any> {
-    return await this.userProfileService.getMe(request);
-  }
-  async updateMe(
-    userId: { user: { user_id: string } },
-    updateUserDto: UpdateUserDto,
-    file: file,
-  ): Promise<any> {
-    return await this.userProfileService.updateMe(userId, updateUserDto, file);
-  }
-  async changeMyPassword(
-    userId: { user: { user_id: string } },
-    updateUserDto: UpdateUserDto,
-  ): Promise<any> {
-    return await this.userProfileService.changeMyPassword(
-      userId,
-      updateUserDto,
-    );
-  }
+
   // --- register user --- //
   async register(
     createUserDto: CreateUserDto,
     file: file,
     res: Response,
-  ): Promise<User> {
+  ): Promise<any> {
     const { email } = createUserDto;
     //1) check email if is in use
     const isExists = await this.userModel.exists({
@@ -69,6 +49,7 @@ export class AuthService {
         this.i18n.translate('exception.EMAIL_EXISTS'),
       );
     }
+
     //2) file upload service (save image in disk storage)
     let filePath = `/${process.env.UPLOADS_FOLDER}/users/avatar.png`;
     if (file) {
@@ -100,13 +81,28 @@ export class AuthService {
     this.cookieService.setAccessTokenCookie(res, Tokens.access_token);
     //5) update avatar url and tokens
     newUser.avatar = `${process.env.BASE_URL}${filePath}`;
-    const userWithTokens = { ...newUser.toObject(), Tokens, status: 'success' };
-    return userWithTokens;
+    // handel response
+    const userWithTokens = {
+      ...newUser.toObject(),
+      password: undefined,
+      __v: undefined,
+    };
+    return {
+      status: 'success',
+      message: this.i18n.translate('success.LOGIN_SUCCESS'),
+      data: userWithTokens,
+      access_token: Tokens.access_token,
+    };
   }
   async login(
     loginUserDto: LoginUserDto,
     res: Response,
-  ): Promise<{ status: string; userResponse: any; Tokens: any }> {
+  ): Promise<{
+    status: string;
+    message: string;
+    data: any;
+    access_token: string;
+  }> {
     const { email, password } = loginUserDto;
     // 1) Find user by email
     const user = await this.userModel
@@ -116,18 +112,14 @@ export class AuthService {
 
     if (!user) {
       throw new BadRequestException(
-        this.i18n.translate('exception.INVALID', {
-          args: { variable: 'email or password' },
-        }),
+        this.i18n.translate('exception.INVALID_LOGIN'),
       );
     }
     // 2) check password is valid
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       throw new BadRequestException(
-        this.i18n.translate('exception.INVALID', {
-          args: { variable: 'email or password' },
-        }),
+        this.i18n.translate('exception.INVALID_LOGIN'),
       );
     }
 
@@ -151,15 +143,15 @@ export class AuthService {
 
     return {
       status: 'success',
-      userResponse,
-      Tokens,
+      message: this.i18n.translate('success.LOGIN_SUCCESS'),
+      data: userResponse,
+      access_token: Tokens.access_token,
     };
   }
-
   async logout(
     req: { user: { user_id: string } },
     res: Response,
-  ): Promise<any> {
+  ): Promise<{ message: string }> {
     // 1) check if user is logged in
     if (!req.user) {
       throw new BadRequestException(
@@ -171,12 +163,37 @@ export class AuthService {
       await this.RefreshTokenModel.deleteOne({
         userId: req.user.user_id,
       });
+      // remove cookies
       this.cookieService.clearCookies(res);
-      return { message: 'Logged out successfully' };
+      return { message: this.i18n.translate('exception.LOGOUT_SUCCESS') };
     } catch {
-      throw new BadRequestException(this.i18n.translate('exception.LOGOUT'));
+      throw new BadRequestException(
+        this.i18n.translate('exception.ERROR_LOGOUT'),
+      );
     }
   }
+  async getMe(request: {
+    user: { user_id: string; role: string };
+  }): Promise<any> {
+    return await this.userProfileService.getMe(request);
+  }
+  async updateMe(
+    userId: { user: { user_id: string } },
+    updateUserDto: UpdateUserDto,
+    file: file,
+  ): Promise<any> {
+    return await this.userProfileService.updateMe(userId, updateUserDto, file);
+  }
+  async changeMyPassword(
+    userId: { user: { user_id: string } },
+    updateUserDto: UpdateUserDto,
+  ): Promise<any> {
+    return await this.userProfileService.changeMyPassword(
+      userId,
+      updateUserDto,
+    );
+  }
+
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto): Promise<any> {
     return await this.passwordResetService.forgotPassword(forgotPasswordDto);
   }
@@ -184,8 +201,8 @@ export class AuthService {
   async verify_Pass_Reset_Code(resetCode: resetCodeDto): Promise<any> {
     return await this.passwordResetService.verify_Pass_Reset_Code(resetCode);
   }
-  async resetPassword(LoginUserDto: LoginUserDto): Promise<any> {
-    return await this.passwordResetService.resetPassword(LoginUserDto);
+  async resetPassword(LoginUserDto: LoginUserDto, res: Response): Promise<any> {
+    return await this.passwordResetService.resetPassword(LoginUserDto, res);
   }
 
   async refreshToken(
@@ -193,6 +210,10 @@ export class AuthService {
     req: Request,
     res: Response,
   ): Promise<any> {
-    return await this.tokenService.refreshToken(refreshTokenDto, req, res);
+    return await this.userProfileService.refreshToken(
+      refreshTokenDto,
+      req,
+      res,
+    );
   }
 }
