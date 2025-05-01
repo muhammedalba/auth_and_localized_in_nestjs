@@ -14,7 +14,7 @@ import { resetCodeDto } from '../Dto/resetCode.dto';
 import { LoginUserDto } from '../Dto/login.dto';
 import { CookieService } from './cookie.service';
 import { Response } from 'express';
-import { tokenService } from './token.service';
+import { tokenService } from 'src/auth/shared/services/token.service';
 
 @Injectable()
 export class PasswordResetService {

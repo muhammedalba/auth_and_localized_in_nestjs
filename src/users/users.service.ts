@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Model } from 'mongoose';
@@ -9,8 +10,8 @@ import { FileUploadService } from 'src/file-upload-in-diskStorage/file-upload.se
 import { User } from 'src/users/shared/schemas/user.schema';
 import { CreateUserDto } from './shared/dto/create-user.dto';
 import slugify from 'slugify';
-import { plainToInstance } from 'class-transformer';
 import { UpdateUserDto } from './shared/dto/update-user.dto';
+import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 
 type file = Express.Multer.File;
 
@@ -19,14 +20,19 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly fileUploadService: FileUploadService,
+    private readonly i18n: CustomI18nService,
   ) {}
 
-  async createUser(CreateUserDto: CreateUserDto, file: file): Promise<User> {
-    const { email, name } = CreateUserDto;
+  async createUser(CreateUserDto: CreateUserDto, file: file): Promise<any> {
+    const { email } = CreateUserDto;
     //1) check if email  already exists
-    const existingUser = await this.userModel.findOne({ email });
-    if (existingUser) {
-      throw new BadRequestException('Email already exists');
+    const isExists = await this.userModel.exists({
+      email: email,
+    });
+    if (isExists) {
+      throw new BadRequestException(
+        this.i18n.translate('exception.EMAIL_EXISTS'),
+      );
     }
     //2) file upload service (save image in disk storage)
     let filePath = `/${process.env.UPLOADS_FOLDER}/users/avatar.png`;
@@ -37,23 +43,35 @@ export class UsersService {
           `./${process.env.UPLOADS_FOLDER}/users`,
         );
       } catch (error) {
-        console.error('File upload failed:', error);
+        console.error('File upload failed: ERROR_FILE_UPLOAD', error);
+        throw new InternalServerErrorException(
+          this.i18n.translate('exception.ERROR_FILE_UPLOAD'),
+        );
       }
     }
-
-    CreateUserDto.slug = name ? slugify(name, { lower: true }) : '';
 
     //3) save user to db with avatar path
     CreateUserDto.avatar = filePath;
     const newUser = await this.userModel.create(CreateUserDto);
-    //4) update avatar url
+    // 4) update avatar url
     newUser.avatar = `${process.env.BASE_URL}${filePath}`;
 
-    return plainToInstance(User, newUser.toObject());
+    // handel response
+    const userWithTokens = {
+      ...newUser.toObject(),
+      password: undefined,
+      __v: undefined,
+    };
+
+    return {
+      status: 'success',
+      message: this.i18n.translate('success.LOGIN_SUCCESS'),
+      data: userWithTokens,
+    };
   }
-  async getUsers(): Promise<{ length: number; users: User[] }> {
+  async getUsers(): Promise<any> {
     const users = await this.userModel.find({}, { __v: 0, slug: 0 });
-    return { length: users.length, users };
+    return { status: 'success', length: users.length, data: users };
   }
 
   // createMany(file: file) {

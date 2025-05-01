@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CreateUserDto, UserRole } from 'src/users/shared/dto/create-user.dto';
@@ -11,12 +15,12 @@ import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { LoginUserDto } from './shared/Dto/login.dto';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
-import { tokenService } from './shared/services/token.service';
 import { RefreshTokenDto } from './shared/Dto/refresh-Token.Dto';
 import { CookieService } from './shared/services/cookie.service';
 import { Request, Response } from 'express';
 import { PasswordResetService } from './shared/services/password-reset.service';
 import { userProfileService } from './shared/services/user-profile.service';
+import { tokenService } from 'src/auth/shared/services/token.service';
 
 type file = Express.Multer.File;
 @Injectable()
@@ -60,6 +64,9 @@ export class AuthService {
         );
       } catch (error) {
         console.error('File upload failed:', error);
+        throw new InternalServerErrorException(
+          this.i18n.translate('exception.ERROR_FILE_UPLOAD'),
+        );
       }
     }
     //3) save user to db with avatar path
@@ -72,14 +79,13 @@ export class AuthService {
       user_id: newUser._id.toString(),
       role: UserRole.USER,
       email: newUser.email,
-      passwordChangeAt: undefined,
     };
 
     const Tokens = await this.tokenService.generate_Tokens(userId, '1h');
-    // 4) Set cookies using CookieService
+    // 5) Set cookies using CookieService
     this.cookieService.setRefreshTokenCookie(res, Tokens.refresh_Token);
     this.cookieService.setAccessTokenCookie(res, Tokens.access_token);
-    //5) update avatar url and tokens
+    //6) update avatar url and tokens
     newUser.avatar = `${process.env.BASE_URL}${filePath}`;
     // handel response
     const userWithTokens = {

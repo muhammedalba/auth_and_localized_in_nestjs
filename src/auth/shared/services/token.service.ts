@@ -2,9 +2,9 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuidv4 } from 'uuid';
-import { RefreshToken } from '../schema/refresh-token.schema';
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
+import { RefreshToken } from 'src/auth/shared/schema/refresh-token.schema';
 
 interface DecodedToken {
   user_id: string;

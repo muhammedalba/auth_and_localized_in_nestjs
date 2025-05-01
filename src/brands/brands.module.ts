@@ -15,15 +15,14 @@ import * as mongooseI18n from 'mongoose-i18n-localize';
         useFactory() {
           const schema = BrandSchema;
           schema.plugin(mongooseI18n, {
-            locales: ['ar', 'en'],
-            defaultLocale: 'ar',
+            locales: process.env.LANGUAGES?.split(',') ?? ['ar', 'en'],
+            defaultLocale: process.env.DEFAULT_LANGUAGE ?? 'ar',
             textCase: 'lowercase',
             autoPopulate: true,
             indexes: {
               name: 1,
               slug: 1,
             },
-            timestamps: true,
           });
           return schema;
         },

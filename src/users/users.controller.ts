@@ -34,7 +34,7 @@ export class UsersController {
    * Creates a new user with the provided data and avatar file.
    * The uploaded avatar file, validated to be of type png, jpeg, or webp and not exceeding 1MB.
    */
-  @Post()
+  @Post('create-user')
   @UseInterceptors(FileInterceptor('avatar'))
   createUser(
     @Body()
