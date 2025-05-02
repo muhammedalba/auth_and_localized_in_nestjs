@@ -82,9 +82,22 @@ export class User {
     trim: true,
   })
   avatar?: string;
+  @Prop({
+    required: false,
+    type: 'string',
+    default: 'auth',
+    trim: true,
+  })
+  provider?: string;
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
+UserSchema.set('toJSON', {
+  transform: function (doc, ret, options) {
+    delete ret.password;
+    return ret;
+  },
+});
 
 // Hook for hashing password before saving
 UserSchema.pre('save', async function (next) {

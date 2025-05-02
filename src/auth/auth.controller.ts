@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -20,9 +21,43 @@ import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
 import { Request, Response } from 'express';
+import { GoogleAuthGuard } from './shared/guards/GoogleAuthGuard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  /*
+   * public: /api/v1/google
+   * method: GET
+   */
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  googleAuth() {}
+  /*
+   * public: /api/v1/google/redirect
+   * method: GET
+   */
+  @Get('google/redirect')
+  @UseGuards(GoogleAuthGuard)
+  googleAuthRedirect(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<any> {
+    const user = req.user;
+    if (!user) {
+      throw new BadRequestException('User information is missing.');
+    }
+    return this.authService.googleLogin(
+      user as {
+        email: string;
+        name: string;
+        picture: string;
+        provider: string;
+        providerId: string;
+      },
+      res,
+    );
+  }
   /*
    * public: /api/v1/auth
    * method: POST

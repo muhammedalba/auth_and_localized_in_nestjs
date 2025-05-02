@@ -14,6 +14,9 @@ import { CookieService } from './shared/services/cookie.service';
 import { PasswordResetService } from './shared/services/password-reset.service';
 import { userProfileService } from './shared/services/user-profile.service';
 import { tokenService } from 'src/auth/shared/services/token.service';
+import { PassportModule } from '@nestjs/passport';
+import { GoogleStrategy } from './shared/oauth2/google.strategy';
+import { GoogleAuthGuard } from './shared/guards/GoogleAuthGuard';
 
 @Module({
   imports: [
@@ -23,6 +26,7 @@ import { tokenService } from 'src/auth/shared/services/token.service';
       { name: RefreshToken.name, schema: refreshTokenSchema },
     ]),
     EmailModule,
+    PassportModule,
   ],
 
   exports: [AuthService],
@@ -34,6 +38,8 @@ import { tokenService } from 'src/auth/shared/services/token.service';
     CookieService,
     tokenService,
     userProfileService,
+    GoogleStrategy,
+    GoogleAuthGuard,
   ],
 })
 export class AuthModule {}
