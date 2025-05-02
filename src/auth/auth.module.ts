@@ -15,8 +15,9 @@ import { PasswordResetService } from './shared/services/password-reset.service';
 import { userProfileService } from './shared/services/user-profile.service';
 import { tokenService } from 'src/auth/shared/services/token.service';
 import { PassportModule } from '@nestjs/passport';
-import { GoogleStrategy } from './shared/oauth2/google.strategy';
-import { GoogleAuthGuard } from './shared/guards/GoogleAuthGuard';
+import { GoogleStrategy } from './oauth2/strategy/google.strategy';
+import { GoogleAuthGuard } from './oauth2/guards/GoogleAuthGuard';
+import { googleService } from './oauth2/services/google.service';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GoogleAuthGuard } from './shared/guards/GoogleAuthGuard';
     userProfileService,
     GoogleStrategy,
     GoogleAuthGuard,
+    googleService,
   ],
 })
 export class AuthModule {}

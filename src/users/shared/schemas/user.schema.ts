@@ -92,12 +92,6 @@ export class User {
 }
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
-UserSchema.set('toJSON', {
-  transform: function (doc, ret, options) {
-    delete ret.password;
-    return ret;
-  },
-});
 
 // Hook for hashing password before saving
 UserSchema.pre('save', async function (next) {

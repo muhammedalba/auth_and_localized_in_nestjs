@@ -21,7 +21,8 @@ import { ForgotPasswordDto } from './shared/Dto/forgotPassword.dto.';
 import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
 import { Request, Response } from 'express';
-import { GoogleAuthGuard } from './shared/guards/GoogleAuthGuard';
+import { GoogleAuthGuard } from './oauth2/guards/GoogleAuthGuard';
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

@@ -36,9 +36,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
       providerId: id,
     };
 
-    // حفظ أو جلب المستخدم من قاعدة البيانات
-    //     const user = await this.AuthService.(userData.providerId);
-
     return userData;
   }
 }
