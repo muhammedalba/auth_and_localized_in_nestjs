@@ -22,6 +22,7 @@ import { resetCodeDto } from './shared/Dto/resetCode.dto';
 import { UpdateUserDto } from 'src/users/shared/dto/update-user.dto';
 import { Request, Response } from 'express';
 import { GoogleAuthGuard } from './oauth2/guards/GoogleAuthGuard';
+import { FacebookAuthGuard } from './oauth2/guards/facebook-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -55,6 +56,35 @@ export class AuthController {
         picture: string;
         provider: string;
         providerId: string;
+      },
+      res,
+    );
+  }
+  /*
+   * public: /api/v1/facebook
+   * method: GET
+   */
+  @Get('facebook')
+  @UseGuards(FacebookAuthGuard)
+  facebookLogin() {}
+
+  @Get('facebook/redirect')
+  @UseGuards(FacebookAuthGuard)
+  facebookLoginRedirect(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const user = req.user;
+    if (!user) {
+      throw new BadRequestException('User information is missing.');
+    }
+    return this.authService.facebookLogin(
+      user as {
+        email: string;
+        name: string;
+        picture: string;
+        provider: string;
+        facebookId: string;
       },
       res,
     );

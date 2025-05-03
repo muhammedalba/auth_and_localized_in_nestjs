@@ -16,8 +16,10 @@ import { userProfileService } from './shared/services/user-profile.service';
 import { tokenService } from 'src/auth/shared/services/token.service';
 import { PassportModule } from '@nestjs/passport';
 import { GoogleStrategy } from './oauth2/strategy/google.strategy';
-import { GoogleAuthGuard } from './oauth2/guards/GoogleAuthGuard';
 import { googleService } from './oauth2/services/google.service';
+import { FacebookStrategy } from './oauth2/strategy/facebook.strategy';
+import { FacebookAuthGuard } from './oauth2/guards/facebook-auth.guard';
+import { facebookService } from './oauth2/services/facebook.service';
 
 @Module({
   imports: [
@@ -40,8 +42,10 @@ import { googleService } from './oauth2/services/google.service';
     tokenService,
     userProfileService,
     GoogleStrategy,
-    GoogleAuthGuard,
     googleService,
+    FacebookStrategy,
+    FacebookAuthGuard,
+    facebookService,
   ],
 })
 export class AuthModule {}

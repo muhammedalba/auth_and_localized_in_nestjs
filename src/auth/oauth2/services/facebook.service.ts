@@ -9,7 +9,7 @@ import { CookieService } from 'src/auth/shared/services/cookie.service';
 import { CustomI18nService } from 'src/shared/utils/i18n/costum-i18n-service';
 
 @Injectable()
-export class googleService {
+export class facebookService {
   constructor(
     @InjectModel(User.name) private userModel: Model<User>,
     private readonly i18n: CustomI18nService,
@@ -17,17 +17,17 @@ export class googleService {
     private readonly cookieService: CookieService,
   ) {}
 
-  async googleLogin(
-    googleUser: {
+  async facebookLogin(
+    facebookUser: {
       email: string;
       name: string;
       picture: string;
       provider: string;
-      providerId: string;
+      facebookId: string;
     },
     res: Response,
   ) {
-    const { email } = googleUser;
+    const { email } = facebookUser;
 
     // 1) check user is use
     const user = await this.userModel
@@ -40,15 +40,13 @@ export class googleService {
     if (!user) {
       //1) create password
       const randomPassword = crypto.randomBytes(16).toString('hex');
-      // const hashed = await bcrypt.hash(randomPassword, 10);
-
       // 2) create user
       const newUser = await this.userModel.create({
-        email: googleUser.email,
-        name: googleUser.name,
+        email: facebookUser.email,
+        name: facebookUser.name,
         password: randomPassword,
-        avatar: googleUser.picture,
-        provider: 'google',
+        avatar: facebookUser.picture,
+        provider: 'facebook',
       });
       const userId = {
         user_id: newUser._id.toString(),
